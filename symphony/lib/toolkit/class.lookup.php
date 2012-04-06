@@ -20,9 +20,17 @@ class Lookup
 	/* @var $_index SimpleXMLElement */
 	private $_index;
 
+	// Keep track of the type
 	private $_type;
+
+	// The path to the XML-files (workspace/pages and workspace/sections)
 	private $_path;
+
+	// The element name to use as root-tag
 	private $_element_name;
+
+	// Internal cache (for this class)
+	private $_cache;
 
 	/**
 	 * Get the index
@@ -49,7 +57,7 @@ class Lookup
 	 */
 	private function __construct($type)
 	{
-		$this->_type = $type;
+		$this->_type  = $type;
 		// Create an index:
 		switch($this->_type)
 		{
@@ -77,7 +85,8 @@ class Lookup
 		{
 			case self::LOOKUP_PAGES :
 				{
-					return Symphony::Database()->insert(array('hash'=>$hash), 'tbl_lookup_pages');
+					Symphony::Database()->insert(array('hash'=>$hash), 'tbl_lookup_pages');
+                    return Symphony::Database()->getInsertID();
 					break;
 				}
 		}
@@ -115,11 +124,24 @@ class Lookup
 	 *
 	 * @param $path
 	 *  The XPath expression
-	 * @return SimpleXMLElement[]
+	 * @param bool $singleValue
+	 *  Does this function return a single value?
+	 * @return bool|SimpleXMLElement|SimpleXMLElement[]
 	 */
-	public function xpath($path)
+	public function xpath($path, $singleValue = false)
 	{
-		return $this->_index->xpath('/'.$this->_type.'/'.$path);
+		if(!$singleValue)
+		{
+			return $this->_index->xpath('/'.$this->_type.'/'.$path);
+		} else {
+			$_result = $this->_index->xpath('/'.$this->_type.'/'.$path);
+			if(count($_result) > 0)
+			{
+				return $_result[0];
+			} else {
+				return false;
+			}
+		}
 	}
 
 	/**
@@ -131,8 +153,14 @@ class Lookup
 	 */
 	public function getId($hash)
 	{
-		return Symphony::Database()->fetchVar('id', 0,
-			sprintf('SELECT `id` FROM `tbl_lookup_pages` WHERE `hash` = \'%s\';', $hash));
+		// The key of an associated index may not begin with a number:
+		$key = 'c_'.$hash;
+		if(!isset($this->_cache['hash'][$key]))
+		{
+			$this->_cache['hash'][$key] = Symphony::Database()->fetchVar('id', 0,
+				sprintf('SELECT `id` FROM `tbl_lookup_pages` WHERE `hash` = \'%s\';', $hash));
+		}
+		return $this->_cache['hash'][$key];
 	}
 
 	/**
@@ -144,85 +172,69 @@ class Lookup
 	 */
 	public function getHash($id)
 	{
-		return Symphony::Database()->fetchVar('hash', 0,
-			sprintf('SELECT `hash` FROM `tbl_lookup_pages` WHERE `id` = %d;', $id));
+		if(!isset($this->_cache['id'][$id]))
+		{
+			$this->_cache['id'][$id] = Symphony::Database()->fetchVar('hash', 0,
+				sprintf('SELECT `hash` FROM `tbl_lookup_pages` WHERE `id` = %d;', $id));
+		}
+		return $this->_cache['id'][$id];
 	}
+
+    /**
+     * Get all used hashes
+     *
+     * @return array
+     */
+    public function getAllHashes()
+    {
+        return Symphony::Database()->fetchCol('hash', 'SELECT `hash` FROM `tbl_lookup_pages`;');
+    }
+
+    /**
+     * Check if there are duplicate hashes. Returns false if not, otherwise the hash in question
+     *
+     * @return bool|string
+     */
+    public function hasDuplicateHashes()
+    {
+        $_hashes = array();
+        foreach($this->_index->children() as $_child)
+        {
+            if(!in_array((string)$_child->unique_hash, $_hashes))
+            {
+                $_hashes[] = (string)$_child->unique_hash;
+            } else {
+                return (string)$_child->unique_hash;
+            }
+        }
+        return false;
+    }
 
 	/**
 	 * Fetch the index
 	 *
+	 * @param string $xpath
+	 *  An xpath expression to filter on
 	 * @param $orderBy
 	 *  The key to order by
 	 * @param string $orderDirection
 	 *  The direction (asc or desc)
 	 * @param bool $sortNumeric
 	 *  Should sorting be numeric (default) or as a string?
-	 * @param array $where
-	 *  A 2-dimensional array with where statements.
 	 * @return array
 	 *  An array with SimpleXMLElements
 	 */
-	public function fetch($where = null, $orderBy = null, $orderDirection = 'asc', $sortNumeric = true)
+	public function fetch($xpath = null, $orderBy = null, $orderDirection = 'asc', $sortNumeric = true)
 	{
 		// Build the new array:
 		$array = array();
-		foreach($this->_index->children() as $_item)
+
+		if($xpath != null)
 		{
-			if(!empty($where))
+			$array = $this->xpath($xpath);
+		} else {
+			foreach($this->_index->children() as $_item)
 			{
-				/* See if this item passes the filter:
-				 * array(
-			 	 *     'id'     => array('eq', 12),
-				 *     'name'   => array('neq', 'tom'),
-				 *     'nr'		=> array('gt', 10),
-				 *     'nr'     => array('lt', 20),
-				 *     'nr'     => array('gte', 10),
-				 *     'nr'     => array('lte', 20)
-				 * );
-				 */
-				$passes = false;
-				foreach($where as $key => $expression)
-				{
-					switch($expression[0])
-					{
-						case 'eq' :
-							{
-								$passes = (string)$_item->$key == (string)$expression[1];
-								break;
-							}
-						case 'neq' :
-							{
-								$passes = (string)$_item->$key != (string)$expression[1];
-								break;
-							}
-						case 'gt' :
-							{
-								$passes = (float)$_item->$key > (float)$expression[1];
-								break;
-							}
-						case 'lt' :
-							{
-								$passes = (float)$_item->$key < (float)$expression[1];
-								break;
-							}
-						case 'gte' :
-							{
-								$passes = (float)$_item->$key >= (float)$expression[1];
-								break;
-							}
-						case 'lte' :
-							{
-								$passes = (float)$_item->$key <= (float)$expression[1];
-								break;
-							}
-					}
-				}
-				if($passes)
-				{
-					$array[] = $_item;
-				}
-			} else {
-				// Just add it:
 				$array[] = $_item;
 			}
 		}
@@ -233,7 +245,19 @@ class Lookup
 			// Create an indexed array of items:
 			foreach($array as $_item)
 			{
-				$sorter[(string)$_item->$orderBy] = $_item;
+                // Prevent duplicate keys from being overwritten:
+                $ok = true;
+                $i  = 1;
+                while($ok)
+                {
+                    $key = (string)$_item->$orderBy.'_'.$i;
+                    if(!isset($sorter[$key]))
+                    {
+                        $sorter[$key] = $_item;
+                        $ok = false;
+                    }
+                    $i++;
+                }
 			}
 			// Sort the array:
 			if($sortNumeric) {
@@ -278,6 +302,10 @@ class Lookup
 	 */
 	public function reIndex()
 	{
+		// Clear the cache:
+		$this->_cache = array('id' => array(), 'hash' => array());
+
+		// Build the index:
 		$this->_index = new SimpleXMLElement('<'.$this->_element_name.'/>');
 		$_pages = glob($this->_path);
 		foreach($_pages as $_page)

@@ -1,7 +1,5 @@
 <?php
 
-	require_once TOOLKIT.'/class.lookup.php';
-
 	/**
 	 * @package toolkit
 	 */
@@ -15,6 +13,16 @@
 	 * @since Symphony 2.3
 	 */
 	Class PageManager {
+
+		/**
+		 * Return the Lookup Index for Pages
+		 *
+		 * @return Lookup
+		 */
+		public static function index()
+		{
+			return Lookup::index(Lookup::LOOKUP_PAGES);
+		}
 
 		/**
 		 * Given an associative array of data, where the key is the column name
@@ -38,7 +46,7 @@
 			$unique_hash = self::__generatePageXML($fields);
 			
 			// Store unique hash in the lookup table:
-			$pageID = Lookup::index(Lookup::LOOKUP_PAGES)->save($unique_hash);
+			$pageID = self::index()->save($unique_hash);
 
 			return $pageID;
 		}
@@ -53,6 +61,7 @@
 		 */
 		private function __generatePageXML($fields)
 		{
+
 			// Generate Page XML-file:
 			// Generate a unique hash, this only happens the first time this page is created:
 			if(!isset($fields['unique_hash']))
@@ -61,13 +70,14 @@
 			}
 
 			// Generate datasources-xml:
-			$datasources = empty($fields['datasources']) ? '' :
-				'<datasource>'.implode('</datasource><datasource>', $fields['datasources']) .'</datasource>';
+			$datasources = empty($fields['data_sources']) ? '' :
+				'<datasource>'.implode('</datasource><datasource>', explode(',', $fields['data_sources'])) .'</datasource>';
 
 			// Generate events-xml:
 			$events = empty($fields['events']) ? '' :
-				'<event>'.implode('</event><event>', $fields['events']) .'</event>';
+				'<event>'.implode('</event><event>', explode(',', $fields['events'])) .'</event>';
 
+			// Generate types-xml:
 			$types = empty($fields['types']) ? '' :
 				'<type>'.implode('</type><type>', $fields['types']) .'</type>';
 
@@ -79,6 +89,7 @@
 				<page>
 					<title handle="%1$s">%2$s</title>
 					<unique_hash>%8$s</unique_hash>
+					<parent>%10$s</parent>
 					<path>%3$s</path>
 					<params>%4$s</params>
 					<datasources>%5$s</datasources>
@@ -95,7 +106,8 @@
 				$events,
 				$fields['sortorder'],
 				$fields['unique_hash'],
-			    $types
+			    $types,
+			    self::index()->getHash($fields['parent'])
 			));
 
 			// Save the XML:
@@ -107,10 +119,47 @@
 
 			// Re-index:
 			// @Todo: optimize the code with a save-function at the end?
-			Lookup::index(Lookup::LOOKUP_PAGES)->reIndex();
+			self::index()->reIndex();
 
 			return $fields['unique_hash'];
 		}
+
+        /**
+         * This function checks if there are new pages added manually, or if there are pages deleted manually.
+         * If so, an entry in the lookup table needs to be added or deleted:
+         */
+        public static function checkLookups()
+        {
+            // First, check if there are duplicate unique hashes. This is ofcourse not done!
+            if($_hash = self::index()->hasDuplicateHashes())
+            {
+                throw new Exception(__('Duplicate unique hash found in Pages: '.$_hash));
+            }
+
+            // Secondly check if there are hashes in our index that aren't present in the lookup table. This would mean
+            // that a new page is added:
+            $_pages = self::index()->fetch();
+            foreach($_pages as $_page)
+            {
+                if(self::index()->getId((string)$_page->unique_hash) == false)
+                {
+                    // No ID found for this hash, this page is new!
+                    self::index()->save((string)$_page->unique_hash);
+                }
+            }
+
+            // Third, check if there are hashes in the lookup table that aren't used by any pages. This would mean
+            // that a page is deleted:
+            $_hashes = self::index()->getAllHashes();
+            foreach($_hashes as $_hash)
+            {
+                if(self::index()->xpath('page[unique_hash=\''.$_hash.'\']', true) === false)
+                {
+                    // No page found with this hash, this page is deleted.
+                    self::index()->delete($_hash);
+                }
+            }
+        }
 
 		/**
 		 * Return a Page title by the handle
@@ -130,8 +179,7 @@
 					Symphony::Database()->cleanValue($handle)
 			));*/
 
-			return (string)Lookup::index(Lookup::LOOKUP_PAGES)->xpath(
-				sprintf('page/title[@handle=\'%s\']', $handle));
+			return (string)self::index()->xpath(sprintf('page/title[@handle=\'%s\']', $handle));
 		}
 
 		/**
@@ -152,9 +200,8 @@
 					Symphony::Database()->cleanValue($handle)
 			));*/
 
-			$hash = Lookup::index(Lookup::LOOKUP_PAGES)->xpath(
-				sprintf('page[title/@handle=\'%s\']/hash', $handle));
-			return Lookup::index(Lookup::LOOKUP_PAGES)->getId($hash);
+			$hash = self::index()->xpath(sprintf('page[title/@handle=\'%s\']/hash', $handle));
+			return self::index()->getId($hash);
 		}
 
 		/**
@@ -167,10 +214,10 @@
 		 *  An array of page types
 		 * @return boolean
 		 */
-		public static function addPageTypesToPage($page_id = null, array $types) {
+/*		public static function addPageTypesToPage($page_id = null, array $types) {
 			if(is_null($page_id)) return false;
 
-			PageManager::deletePageTypes($page_id);
+			PageManager::deletePageTypes($page_id);*/
 
 /*			foreach ($types as $type) {
 				Symphony::Database()->insert(
@@ -182,7 +229,7 @@
 				);
 			}*/
 
-			$_pages = self::fetch(false, array(), array(
+/*			$_pages = self::fetch(false, array(), array(
 				'id' => array('eq', $page_id)
 			));
 
@@ -192,7 +239,7 @@
 			self::__generatePageXML($_page);
 
 			return true;
-		}
+		}*/
 
 
 		/**
@@ -338,19 +385,35 @@
 			if(isset($fields['id'])) unset($fields['id']);
 
 			// Set the sortorder:
-			if(!isset($fields['sortorder']))
+/*			if(!isset($fields['sortorder']))
 			{
-				$_hash = Lookup::index(Lookup::LOOKUP_PAGES)->getHash($page_id);
-				$_sortorder = Lookup::index(Lookup::LOOKUP_PAGES)->xpath(
-					sprintf('page[unique_hash=\'%s\']/sortorder', $_hash));
+				$_hash = self::index()->getHash($page_id);
+				$_sortorder = self::index()->xpath(sprintf('page[unique_hash=\'%s\']/sortorder', $_hash));
 				$fields['sortorder'] = (int)$_sortorder[0];
+			}*/
+
+			// Load the original data:
+			$_data = self::fetch(
+				sprintf('page[unique_hash=\'%s\']', self::index()->getHash($page_id))
+			);
+			$_data = $_data[0];
+
+			// Merge the arrays (that's really all that edit does...):
+			foreach($fields as $key => $value)
+			{
+				$_data[$key] = $value;
 			}
 
-			self::__generatePageXML($fields);
+            if($delete_types) {
+                $_data['types'] = array();
+            }
 
-			if($delete_types) {
-				PageManager::deletePageTypes($page_id);
-			}
+            if(isset($fields['types']))
+            {
+                $_data['types'] = $fields['types'];
+            }
+
+			self::__generatePageXML($_data);
 
 			return true;
 
@@ -450,7 +513,7 @@
 				));*/
 
 				// Delete from lookup table:
-				Lookup::index(Lookup::LOOKUP_PAGES)->delete($page_id);
+				self::index()->delete($page_id);
 
 			}
 
@@ -465,7 +528,7 @@
 		 *  The ID of the Page that should be deleted.
 		 * @return boolean
 		 */
-		public static function deletePageTypes($page_id = null) {
+/*		public static function deletePageTypes($page_id = null) {
 			if(is_null($page_id)) return false;
 
 			// return Symphony::Database()->delete('tbl_pages_types', sprintf(" `page_id` = %d ", $page_id));
@@ -475,7 +538,7 @@
 			self::__generatePageXML($_page);
 
 			return true;
-		}
+		}*/
 
 		/**
 		 * Given a Page's `$path` and `$handle`, this function will remove
@@ -511,19 +574,14 @@
 		 * Optionally, `$where` and `$order_by` parameters allow a developer to
 		 * further refine their query.
 		 *
-		 * @param boolean $include_types
-		 *  Whether to include the resulting Page's Page Types in the return array,
-		 *  under the key `type`. Defaults to true.
-		 * @param array $select (optional)
-		 *  Accepts an array of columns to return from `tbl_pages`. If omitted,
-		 *  all columns from the table will be returned.
-		 * @param array $where (optional)
-		 *  Accepts an array of WHERE statements that will be appended with AND.
-		 *  If omitted, all pages will be returned.
+		 * @param string $xpath (optional)
+		 *  A XPath expression to filter pages out of the Pages Index.
 		 * @param string $order_by (optional)
-		 *  Allows a developer to return the Pages in a particular order. The string
-		 *  passed will be appended to `ORDER BY`. If omitted this will return
-		 *  Pages ordered by `sortorder`.
+		 *  Allows a developer to return the Pages in a particular order. If omitted
+		 *  this will return pages ordered by `sortorder`.
+		 * @param string $order_direction (optional
+		 *  The direction to order (`asc` or `desc`)
+		 *  Defaults to `asc`
 		 * @param boolean $hierarchical (optional)
 		 *  If true, builds a multidimensional array representing the pages hierarchy.
 		 *  Defaults to false.
@@ -533,14 +591,15 @@
 		 *  can be made multidimensional to reflect the pages hierarchy. If no Pages are
 		 *  found, null is returned.
 		 */
-		public static function fetch($include_types = true, array $select = array(), array $where = array(), $order_by = null, $hierarchical = false) {
+		// public static function fetch($include_types = true, array $select = array(), array $where = array(), $order_by = null, $hierarchical = false) {
+		public static function fetch($xpath = 'page', $order_by = 'sortorder', $order_direction = 'asc', $hierarchical = false) {
 
-			if($hierarchical) $select = array_merge($select, array('id', 'parent'));
-			if(empty($select)) $select = array('*');
+			// if($hierarchical) $select = array_merge($select, array('id', 'parent'));
+			// if(empty($select)) $select = array('*');
 
-			if(is_null($order_by)) $order_by = 'sortorder ASC';
+			// if(is_null($order_by)) $order_by = 'sortorder ASC';
 
-			$_where = array();
+/*			$_where = null;
 			if(!empty($where))
 			{
 				// For now, convert MySQL to Lookup-actions (backward compatible):
@@ -563,12 +622,13 @@
 							if($a[0] == 'id')
 							{
 								$_where['unique_hash'] = array(
-									$a[1], Lookup::index(Lookup::LOOKUP_PAGES)->getHash($a[2])
+									$a[1], self::index()->getHash($a[2])
 								);
 							} else {
 								$_where[$a[0]] = array($a[1], $a[2]);
 							}
 						} else {
+							// For debugging now:
 							print_r($where).'<br />';
 							print_r($a);
 						}
@@ -578,16 +638,19 @@
 						if($key == 'id')
 						{
 							$_where['unique_hash'] = array(
-								$action[0], Lookup::index(Lookup::LOOKUP_PAGES)->getHash($action[1])
+								$action[0], self::index()->getHash($action[1])
 							);
+						} elseif($key == 'xpath') {
+							// Xpath functionality:
+							$_where['xpath'] = $action;
 						} else {
 							$_where[$key] = $action;
 						}
 					}
 				}
-			}
+			}*/
 
-			$_pages = Lookup::index(Lookup::LOOKUP_PAGES)->fetch($_where, 'sortorder', 'asc');
+			$_pages = self::index()->fetch($xpath, $order_by, $order_direction);
 			
 /*			$pages = Symphony::Database()->fetch(sprintf("
 					SELECT
@@ -604,35 +667,57 @@
 				$order_by
 			));*/
 
+			// Convert array of SimpleXMLElements to associated array:
 			$pages = array();
 			foreach($_pages as $_page)
 			{
-				$pages[] = array(
-					'id'			=> Lookup::index(Lookup::LOOKUP_PAGES)->getId((string)$_page->unique_hash),
-					'parent' 		=> (string)$_page->parent,
+				// Set the page ID:
+				$page_id = self::index()->getId((string)$_page->unique_hash);
+
+				// Set the datasources:
+				$_datasources = array();
+				foreach($_page->xpath('datasources/datasource') as $_datasource)
+				{
+					$_datasources[] = (string)$_datasource;
+				}
+
+				// Set the events:
+				$_events = array();
+				foreach($_page->xpath('events/event') as $_event)
+				{
+					$_events[] = (string)$_event;
+				}
+
+				// Set the page array:
+				$page = array(
+					'id'			=> $page_id,
+					'parent' 		=> self::__getParentID($page_id),
 					'title'  		=> (string)$_page->title,
 					'handle' 		=> (string)$_page->title->attributes()->handle,
-					'path'	 		=> (string)$_page->path,
+					'path'	 		=> (!empty($_page->path) ? (string)$_page->path : false),
 					'params' 		=> (string)$_page->params,
-					'data_sources' 	=> (string)$_page->datasources,
-					'events' 		=> (string)$_page->events,
+					'data_sources' 	=> implode(',', $_datasources),
+					'events' 		=> implode(',', $_events),
 					'sortorder'		=> (string)$_page->sortorder,
-					'unique_hash'	=> (string)$_page->unique_hash
+					'unique_hash'	=> (string)$_page->unique_hash,
+					'type'			=> PageManager::fetchPageTypes($page_id)
 				);
+
+				// Add the page to the pages array:
+				$pages[] = $page;
 			}
 
 			// print_r($pages);
 
 			// Fetch the Page Types for each page, if required
-			if($include_types){
+/*			if($include_types){
 				foreach($pages as &$page) {
 					$page['type'] = PageManager::fetchPageTypes($page['id']);
 				}
-			}
+			}*/
 
 			if($hierarchical){
 				$output = array();
-
 				self::__buildTreeView(null, $pages, $output);
 				$pages = $output;
 			}
@@ -640,6 +725,14 @@
 			return !empty($pages) ? $pages : array();
 		}
 
+		/**
+		 * Recursive function to build a tree for the pages
+		 *
+		 * @param $parent_id
+		 * @param $pages
+		 * @param $results
+		 * @return
+		 */
 		private function __buildTreeView($parent_id, $pages, &$results) {
 			if (!is_array($pages)) return;
 
@@ -649,6 +742,28 @@
 
 					self::__buildTreeView($page['id'], $pages, $results[count($results) - 1]['children']);
 				}
+			}
+		}
+
+		/**
+		 * Get the parent ID of this page
+		 *
+		 * @param $page_id
+		 *  The Page ID
+		 * @return bool|int
+		 *  The Parent ID if found, false otherwise
+		 */
+		private function __getParentID($page_id)
+		{
+			$_hash = self::index()->getHash($page_id);
+			$_parent_hash = self::index()->xpath(
+				sprintf('page[unique_hash = \'%s\']/parent', $_hash), true
+			);
+			if(!empty($_parent_hash))
+			{
+				return self::index()->getId($_parent_hash);
+			} else {
+				return false;
 			}
 		}
 
@@ -679,9 +794,13 @@
 				sprintf("id IN ('%s')", implode(',', $page_id))
 			));*/
 
-			$pages = PageManager::fetch(true, $select, array(
+/*			$pages = PageManager::fetch(true, $select, array(
 		    	'id' => array('eq', $page_id)
-			));
+			));*/
+
+			$pages = PageManager::fetch(
+				sprintf('page[unique_hash=\'%s\']', self::index()->getHash($page_id))
+			);
 
 			return !empty($pages) ? $pages[0] : null;
 		}
@@ -701,9 +820,7 @@
 		public static function fetchPageByType($type = null) {
 			if(is_null($type)) return PageManager::fetch();
 
-			
-
-			$pages = Symphony::Database()->fetch(sprintf("
+/*			$pages = Symphony::Database()->fetch(sprintf("
 					SELECT
 						`p`.*
 					FROM
@@ -714,7 +831,34 @@
 						`pt`.type = '%s'
 				",
 				Symphony::Database()->cleanValue($type)
-			));
+			));*/
+
+/*			$pages = self::fetch(true, array(), array(
+										 
+			));*/
+
+/*			$pages = array();
+			$_pages = self::index()->xpath(
+				sprintf('page[types/type = \'%s\']', $type)
+			);
+			foreach($_pages as $_page)
+			{
+				$pages[] = array(
+					'id'			=> self::index()->getId((string)$_page->unique_hash),
+					'parent' 		=> (string)$_page->parent,
+					'title'  		=> (string)$_page->title,
+					'handle' 		=> (string)$_page->title->attributes()->handle,
+					'path'	 		=> (string)$_page->path,
+					'params' 		=> (string)$_page->params,
+					'data_sources' 	=> (string)$_page->datasources,
+					'events' 		=> (string)$_page->events,
+					'sortorder'		=> (string)$_page->sortorder,
+					'unique_hash'	=> (string)$_page->unique_hash
+				);
+			}*/
+			$pages = self::fetch(
+				sprintf('page[types/type = \'%s\']', $type)
+			);
 
 			return count($pages) == 1 ? array_pop($pages) : $pages;
 		}
@@ -738,10 +882,17 @@
 
 			if(empty($select)) $select = array('*');
 
-			return PageManager::fetch(false, $select, array(
+/*			return PageManager::fetch(false, $select, array(
 				sprintf('id != %d', $page_id),
-				sprintf('parent = %d', $page_id)
-			));
+				sprintf('parent = %d', self::index()->getHash($page_id))
+			));*/
+
+			return PageManager::fetch(
+				sprintf('page[unique_hash!=\'%1$s\' and parent=\'%1$s\']',
+					self::index()->getHash($page_id))
+			);
+
+
 		}
 
 		/**
@@ -757,18 +908,20 @@
 
 			if($page_id != null)
 			{
-				$_hash 	= Lookup::index(Lookup::LOOKUP_PAGES)->getHash($page_id);
-				$_types = Lookup::index(Lookup::LOOKUP_PAGES)->xpath(
-					sprintf('page[unique_hash=\'%s\']/types/type', $_hash)
-				);
+				$_hash 	= self::index()->getHash($page_id);
+				$_types = self::index()->xpath(sprintf('page[unique_hash=\'%s\']/types/type', $_hash));
 			} else {
-				$_types = Lookup::index(Lookup::LOOKUP_PAGES)->xpath('page/types/type');
+				$_types = self::index()->xpath('page/types/type');
 			}
+
 			$_array = array();
-			foreach($_types as $_type)
-			{
-				$_array[] = (string)$_type;
-			}
+            if($_types != false)
+            {
+                foreach($_types as $_type)
+                {
+                    $_array[] = (string)$_type;
+                }
+            }
 
 			return $_array;
 
@@ -827,7 +980,7 @@
 			");
 			return ($next ? (int)$next : 1);*/
 
-			return Lookup::index(Lookup::LOOKUP_PAGES)->getMax('sortorder') + 1;
+			return self::index()->getMax('sortorder') + 1;
 		}
 
 		/**
@@ -874,9 +1027,14 @@
 		public static function getChildPagesCount($page_id = null) {
 			if(is_null($page_id)) return null;
 
-			$children = PageManager::fetch(false, array('id'), array(
-				sprintf('parent = %d', $page_id)
-			));
+/*			$children = PageManager::fetch(false, array('id'), array(
+				sprintf('parent = %d', self::index()->getHash($page_id))
+			));*/
+
+			$children = PageManager::fetch(
+				sprintf('page[parent=\'%s\']', self::index()->getHash($page_id))
+			);
+
 			$count = count($children);
 
 			if($count > 0){
@@ -900,9 +1058,15 @@
 		 *  True if the type is used, false otherwise
 		 */
 		public static function hasPageTypeBeenUsed($page_id = null, $type) {
-			
+			$xpath = 'page[types/type = \''.$type.'\'';
+			if($page_id != null) {
+				$hash  = self::index()->getHash($page_id);
+				$xpath.= ' and unique_hash != \''.$hash.'\'';
+			}
+			$xpath.= ']';
+			return count(self::index()->xpath($xpath)) > 0;
 
-			return (boolean)Symphony::Database()->fetchRow(0, sprintf("
+/*			return (boolean)Symphony::Database()->fetchRow(0, sprintf("
 					SELECT
 						pt.id
 					FROM
@@ -914,7 +1078,7 @@
 				",
 				$page_id,
 				Symphony::Database()->cleanValue($type)
-			));
+			));*/
 		}
 
 		/**
@@ -927,7 +1091,14 @@
 		 *  True if the page has children, false otherwise
 		 */
 		public static function hasChildPages($page_id = null) {
-			return (boolean)Symphony::Database()->fetchVar('id', 0, sprintf("
+
+			$_hash = self::index()->getHash($page_id);
+			$_children = self::index()->xpath(
+				sprintf('page[parent=\'%s\']', $_hash)
+			);
+			return count($_children) > 0;
+
+/*			return (boolean)Symphony::Database()->fetchVar('id', 0, sprintf("
 					SELECT
 						p.id
 					FROM
@@ -937,7 +1108,7 @@
 					LIMIT 1
 				",
 				$page_id
-			));
+			));*/
 		}
 
 		/**
@@ -968,13 +1139,15 @@
 		 * @param mixed $page_id
 		 *  The ID of the Page that currently being viewed, or the handle of the
 		 *  current Page
+		 * @param string $column
+		 *  The name of the column (title, handle, etc.)
 		 * @return array
 		 *  An array of the current Page, containing the `$column`
 		 *  requested. The current page will be the last item the array, as all
 		 *  parent pages are prepended to the start of the array
 		 */
 		public static function resolvePage($page_id, $column) {
-			$path = array();
+			// $path = array();
 /*			$page = Symphony::Database()->fetchRow(0, sprintf("
 					SELECT
 						p.%s,
@@ -991,22 +1164,31 @@
 					Symphony::Database()->cleanValue($page_id)
 			));*/
 
-			$pages = self::fetch(true, array(), array(
-				'id' => array('eq', $page_id)
-		    ));
+			if(is_numeric($page_id))
+			{
+				$pages = self::fetch(
+					sprintf('page[unique_hash=\'%s\']', self::index()->getHash($page_id))
+				);
+			} else {
+				$pages = self::fetch(
+					sprintf('page[title/@handle=\'%s\']', $page_id)
+				);
+			}
 			$page = $pages[0];
 
 			if(empty($page)) return $page;
 
 			$path = array($page[$column]);
 
-			// @Todo: get parent according to path and stuff...
 			if (!is_null($page['parent'])) {
 				$next_parent = $page['parent'];
 
-				while (
+				$_continue = true;
 
-					$parent = Symphony::Database()->fetchRow(0, sprintf("
+				while ($_continue
+
+
+/*					$parent = Symphony::Database()->fetchRow(0, sprintf("
 							SELECT
 								p.%s,
 								p.parent
@@ -1017,10 +1199,20 @@
 						",
 							$column,
 							$next_parent
-					))
+					))*/
+
 				) {
-					array_unshift($path, $parent[$column]);
-					$next_parent = $parent['parent'];
+					$_page = self::fetch(
+						sprintf('page[unique_hash=\'%s\']', self::index()->getHash($next_parent))
+					);
+					if(!empty($_page))
+					{
+						// array_unshift($path, $parent[$column]);
+						array_unshift($path, $_page[0][$column]);
+						$next_parent = $_page['parent'];
+					} else {
+						$_continue = false;
+					}
 				}
 			}
 
@@ -1073,7 +1265,12 @@
          */
         public static function isDataSourceUsed($handle)
         {
-            return Symphony::Database()->fetchVar('count', 0, "SELECT COUNT(*) AS `count` FROM `tbl_pages` WHERE `data_sources` REGEXP '[[:<:]]{$handle}[[:>:]]' ") > 0;
+            $_page = self::index()->xpath(
+				sprintf('page[datasources/datasource=\'%s\'][1]', $handle), true
+			);
+			return $_page != false;
+			
+			// return Symphony::Database()->fetchVar('count', 0, "SELECT COUNT(*) AS `count` FROM `tbl_pages` WHERE `data_sources` REGEXP '[[:<:]]{$handle}[[:>:]]' ") > 0;
         }
 
         /**
@@ -1086,7 +1283,12 @@
          */
         public static function isEventUsed($handle)
         {
-            return Symphony::Database()->fetchVar('count', 0, "SELECT COUNT(*) AS `count` FROM `tbl_pages` WHERE `events` REGEXP '[[:<:]]{$handle}[[:>:]]' ") > 0;
+			$_page = self::index()->xpath(
+				sprintf('page[events/event=\'%s\'][1]', $handle), true
+			);
+			return $_page != false;
+			
+            // return Symphony::Database()->fetchVar('count', 0, "SELECT COUNT(*) AS `count` FROM `tbl_pages` WHERE `events` REGEXP '[[:<:]]{$handle}[[:>:]]' ") > 0;
         }
 
         /**
@@ -1101,15 +1303,26 @@
          */
         public static function resolvePageByPath($handle, $path = false)
         {
-            $sql = sprintf(
+/*            $sql = sprintf(
                 "SELECT * FROM `tbl_pages` WHERE `path` %s AND `handle` = '%s' LIMIT 1",
                 ($path ? " = '".Symphony::Database()->cleanValue($path)."'" : 'IS NULL'),
                 Symphony::Database()->cleanValue($handle)
             );
 
-            $row = Symphony::Database()->fetchRow(0, $sql);
+            $row = Symphony::Database()->fetchRow(0, $sql);*/
 
-            return $row;
+            // return $row;
+
+			$xpath = 'page[title/@handle=\''.$handle.'\'';
+			if($path != false) { $xpath .= ' and path=\''.$path.'\''; }
+			$xpath .= ']';
+			$pages = self::fetch($xpath);
+			if(count($pages) > 0)
+			{
+				return $pages[0];
+			} else {
+				return false;
+			}
         }
 
         /**
@@ -1120,13 +1333,22 @@
          */
         public static function fetchPageTypeArray()
         {
-            $types = Symphony::Database()->fetch("SELECT `page_id`,`type` FROM `tbl_pages_types`");
+/*            $types = Symphony::Database()->fetch("SELECT `page_id`,`type` FROM `tbl_pages_types`");
             $page_types = array();
             if(is_array($types)) {
                 foreach($types as $type) {
                     $page_types[$type['page_id']][] = $type['type'];
                 }
-            }
+            }*/
+
+			$page_types = array();
+			$_pages = self::fetch();
+
+			foreach($_pages as $_page)
+			{
+				$page_types[$_page['id']] = $_page['type'];
+			}
+
             return $page_types;
         }
 	}
