@@ -398,8 +398,8 @@
 
 			if (empty($rows)) return $entries;
 
-			// choose whether to get data from a subset of fields or all fields in a section
-			$schema = FieldManager::fetchSchema($section_id, $element_names);
+			$schema = FieldManager::fetchFieldIDFromElementName($element_names, $section_id);
+			if(is_int($schema)) $schema = array($schema);
 
 			$raw = array();
 			$rows_string = '';
@@ -412,8 +412,7 @@
 			$rows_string = trim($rows_string, ',');
 
 			// Append field data:
-			foreach ($schema as $f) {
-				$field_id = $f['id'];
+			if(is_array($schema)) foreach ($schema as $field_id) {
 
 				try{
 					$row = Symphony::Database()->fetch("SELECT * FROM `tbl_entries_data_{$field_id}` WHERE `entry_id` IN ($rows_string) ORDER BY `id` ASC");

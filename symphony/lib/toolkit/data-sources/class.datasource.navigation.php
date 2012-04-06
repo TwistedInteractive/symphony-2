@@ -146,7 +146,7 @@
 			else {
 				// Build an array of all the types so that the page's don't have to do
 				// individual lookups.
-				$page_types = PageManager::fetchPageTypeArray();
+				$page_types = PageManager::fetchAllPagesPageTypes();
 
 				foreach($pages as $page) {
 					$result->appendChild($this->__buildPageXML($page, $page_types));

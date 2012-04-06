@@ -481,7 +481,7 @@
 			if(is_dir(EXTENSIONS . "/{$extension_handle}/fields")){
 				foreach(glob(EXTENSIONS . "/{$extension_handle}/fields/field.*.php") as $file){
 					$type = preg_replace(array('/^field\./i', '/\.php$/i'), NULL, basename($file));
-					if(FieldManager::isTypeUsed($type)){
+					if(FieldManager::isFieldUsed($type)){
 						throw new Exception(
 							__('The field ‘%s’, provided by the Extension ‘%s’, is currently in use.', array(basename($file), $about['name']))
 							. ' ' . __("Please remove it from your sections prior to uninstalling or disabling.")
@@ -520,13 +520,12 @@
 			if(is_dir(EXTENSIONS . "/{$extension_handle}/text-formatters")){
 				foreach(glob(EXTENSIONS . "/{$extension_handle}/text-formatters/formatter.*.php") as $file){
 					$handle = preg_replace(array('/^formatter\./i', '/\.php$/i'), NULL, basename($file));
-                    if(FieldManager::isTextFormatterUsed($handle))
-                    {
-                        throw new Exception(
-                            __('The Text Formatter ‘%s’, provided by the Extension ‘%s’, is currently in use.', array(basename($file), $about['name']))
-                            . ' ' . __("Please remove it from your pages prior to uninstalling or disabling.")
-                        );
-                    }
+					if(FieldManager::isTextFormatterUsed($handle)) {
+						throw new Exception(
+							__('The Text Formatter ‘%s’, provided by the Extension ‘%s’, is currently in use.', array(basename($file), $about['name']))
+							. ' ' . __("Please remove it from your fields prior to uninstalling or disabling.")
+						);
+					}
 				}
 			}
 		}

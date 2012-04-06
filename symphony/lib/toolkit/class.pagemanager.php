@@ -963,7 +963,7 @@
 				? General::array_remove_duplicates(array_merge($system_types, $types))
 				: $system_types;
 		}
-		
+
 		/**
 		 * Work out the next available sort order for a new page
 		 *
@@ -981,6 +981,25 @@
 			return ($next ? (int)$next : 1);*/
 
 			return self::index()->getMax('sortorder') + 1;
+		}
+
+		/**
+		 * Fetch an associated array with Page ID's and the types they're using.
+		 *
+		 * @return array
+		 *  A 2-dimensional associated array where the key is the page ID.
+		 */
+		public static function fetchAllPagesPageTypes() {
+			$types = Symphony::Database()->fetch("SELECT `page_id`,`type` FROM `tbl_pages_types`");
+			$page_types = array();
+
+			if(is_array($types)) {
+				foreach($types as $type) {
+					$page_types[$type['page_id']][] = $type['type'];
+				}
+			}
+
+			return $page_types;
 		}
 
 		/**

@@ -13,7 +13,7 @@
 	require_once(CORE . '/class.symphony.php');
 	require_once(TOOLKIT . '/class.htmlpage.php');
 	require_once(TOOLKIT . '/class.ajaxpage.php');
-    require_once(TOOLKIT . '/class.sectionmanager.php');
+	require_once(TOOLKIT . '/class.sectionmanager.php');
 
 	Class Administration extends Symphony{
 
@@ -114,17 +114,16 @@
 					$default_area = null;
 
 					if(is_numeric($this->Author->get('default_area'))) {
-                        $default_section = SectionManager::fetch($this->Author->get('default_area'));
-                        $section_handle = $default_section->get('handle');
+						$default_section = SectionManager::fetch($this->Author->get('default_area'));
+						$section_handle = $default_section->get('handle');
 
 						if(!$section_handle){
-                            $all_sections = SectionManager::fetch();
-                            if(count($all_sections) > 0)
-                            {
-                                $section_handle = $all_sections[0]->get('handle');
-                            } else {
-                                $section_handle = null;
-                            }
+							$all_sections = SectionManager::fetch();
+							if(!empty($all_sections)) {
+								$section_handle = $all_sections[0]->get('handle');
+							} else {
+								$section_handle = null;
+							}
 						}
 
 						if(!is_null($section_handle)) {
@@ -137,13 +136,12 @@
 
 					if(is_null($default_area)) {
 						if($this->Author->isDeveloper()) {
-                            $all_sections = SectionManager::fetch();
-                            if(count($all_sections) > 0)
-                            {
-                                $section_handle = $all_sections[0]->get('handle');
-                            } else {
-                                $section_handle = null;
-                            }
+							$all_sections = SectionManager::fetch();
+							if(!empty($all_sections)) {
+								$section_handle = $all_sections[0]->get('handle');
+							} else {
+								$section_handle = null;
+							}
 
 							if(!is_null($section_handle)) {
 								// If there are sections created, redirect to the first one (sortorder)
