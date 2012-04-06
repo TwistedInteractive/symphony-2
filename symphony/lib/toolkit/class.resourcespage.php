@@ -51,7 +51,7 @@
 
 		public function pagesFlatView(){
 			// $pages = PageManager::fetch(false, array('id'));
-			$pages = PageManager::fetch();
+			$pages = PageManager::fetchByXPath();
 
 			foreach($pages as &$p) {
 				$p['title'] = PageManager::resolvePageTitle($p['id']);
@@ -276,7 +276,7 @@
 					}
 					else if(preg_match('/^(at|de)?tach-all-pages$/', $_POST['with-selected'])) {
 						// $pages = PageManager::fetch(false, array('id'));
-						$pages = PageManager::fetch();
+						$pages = PageManager::fetchByXPath();
 
 						if (substr($_POST['with-selected'], 0, 6) == 'detach') {
 							foreach($checked as $handle) {

@@ -385,7 +385,7 @@
 			$ul->setAttribute('class', 'tags');
 
 			// $pages = PageManager::fetch(false, array('*'), array(), 'title ASC');
-			$pages = PageManager::fetch('page', 'title');
+			$pages = PageManager::fetchByXPath('page', 'title');
 
 			foreach($pages as $page){
 				$ul->appendChild(new XMLElement('li', preg_replace('/\/{2,}/i', '/', '/' . $page['path'] . '/' . $page['handle'])));
@@ -955,7 +955,7 @@
 					"));*/
 
 					// Remove the datasource from the specific pages:
-					$pages = PageManager::fetch(
+					$pages = PageManager::fetchByXPath(
 						sprintf('page[datasources/datasource = \'%s\']', $this->_context[1])
 					);
 
@@ -1336,7 +1336,7 @@
 							`data_sources` REGEXP '[[:<:]]" . $existing_handle . "[[:>:]]'
 						"));*/
 
-						$pages = PageManager::fetch(
+						$pages = PageManager::fetchByXPath(
 							sprintf('page[datasources/datasource = \'%s\']', $existing_handle)
 						);
 

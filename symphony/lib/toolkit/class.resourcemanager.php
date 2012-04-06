@@ -283,14 +283,14 @@
 			{
 				case 'data_sources' :
 					{
-						$pages = PageManager::fetch(
+						$pages = PageManager::fetchByXPath(
 							sprintf('page[datasources/datasource=\'%s\']', $r_handle)
 						);
 						break;
 					}
 				case 'events' :
 					{
-						$pages = PageManager::fetch(
+						$pages = PageManager::fetchByXPath(
 							sprintf('page[events/event=\'%s\']', $r_handle)
 						);
 						break;
@@ -318,7 +318,7 @@
 				'`id` = %d', $page_id
 			)));*/
 
-			$pages = PageManager::fetch(
+			$pages = PageManager::fetchByXPath(
 				sprintf('page[unique_hash=\'%s\']', PageManager::index()->getHash($page_id))
 			);
 
@@ -357,7 +357,7 @@
 				'`id` = %d', $page_id
 			)));*/
 
-			$pages = PageManager::fetch(
+			$pages = PageManager::fetchByXPath(
 				sprintf('page[unique_hash=\'%s\']', PageManager::index()->getHash($page_id))
 			);
 

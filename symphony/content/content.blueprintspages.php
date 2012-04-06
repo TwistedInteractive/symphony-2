@@ -63,7 +63,7 @@
 
 		public function listAllPages($separator = '/') {
 			// $pages = PageManager::fetch(false, array('id', 'handle', 'title', 'path'));
-			$pages = PageManager::fetch();
+			$pages = PageManager::fetchByXPath();
 
 			foreach($pages as &$page){
 				$parents = explode('/', $page['path']);
@@ -124,7 +124,7 @@
 			}
 
 			// $pages = PageManager::fetch(true, array('*'), $where);
-			$pages = PageManager::fetch($xpath);
+			$pages = PageManager::fetchByXPath($xpath);
 
 			if(!is_array($pages) or empty($pages)) {
 				$aTableBody = array(Widget::TableRow(array(
@@ -228,7 +228,7 @@
 				"p.handle = '{$pagename}'"
 			));*/
 
-			$pagedata = PageManager::fetch(sprintf('page[title/@handle=\'%s\']', $pagename));
+			$pagedata = PageManager::fetchByXPath(sprintf('page[title/@handle=\'%s\']', $pagename));
 			
 			$pagedata = array_pop($pagedata);
 
@@ -491,7 +491,7 @@
 				sprintf('id != %d', $page_id)
 			);*/
 			// $pages = PageManager::fetch(false, array('id'), $where, 'title ASC');
-			$pages = PageManager::fetch(
+			$pages = PageManager::fetchByXPath(
 				sprintf('page[unique_hash!=\'%s\']', PageManager::index()->getHash($page_id))
 			);
 
@@ -852,7 +852,7 @@
 						: 'path=\''.$fields['path'].'\'';
 					$xpath .= '['.implode(' and ', $where).']';
 					// $duplicate = PageManager::fetch(false, array('*'), $where);
-					$duplicate = PageManager::fetch($xpath);
+					$duplicate = PageManager::fetchByXPath($xpath);
 
 					// If duplicate
 					if(!empty($duplicate)) {

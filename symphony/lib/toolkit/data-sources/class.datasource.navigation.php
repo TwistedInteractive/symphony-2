@@ -77,7 +77,7 @@
 			}
 
 			if($page['children'] != '0') {
-				if($children = PageManager::fetch(
+				if($children = PageManager::fetchByXPath(
 					sprintf('page[parent=\'%s\']', PageManager::index()->getHash($page['id'])))
 				) {
 					foreach($children as $c) $oPage->appendChild($this->__buildPageXML($c, $page_types));
@@ -134,7 +134,7 @@
 			}
 			if($closebracket) { $xpath .= ']'; }
 
-			$pages = PageManager::fetch($xpath);
+			$pages = PageManager::fetchByXPath($xpath);
 
 			if((!is_array($pages) || empty($pages))){
 				if($this->dsParamREDIRECTONEMPTY == 'yes'){

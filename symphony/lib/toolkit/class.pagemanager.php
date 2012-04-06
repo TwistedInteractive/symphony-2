@@ -393,7 +393,7 @@
 			}*/
 
 			// Load the original data:
-			$_data = self::fetch(
+			$_data = self::fetchByXPath(
 				sprintf('page[unique_hash=\'%s\']', self::index()->getHash($page_id))
 			);
 			$_data = $_data[0];
@@ -572,6 +572,103 @@
 		 * parameters, which will return the Page Types for the Page and allow
 		 * a developer to restrict what information is returned about the Page.
 		 * Optionally, `$where` and `$order_by` parameters allow a developer to
+		 * further refine their query. This function is here for backward compatibility.
+		 * You should use the `fetchByXPath()`-function instead.
+		 *
+		 * @deprecated since 2.4
+		 *
+		 * @param boolean $include_types
+		 *  Whether to include the resulting Page's Page Types in the return array,
+		 *  under the key `type`. Defaults to true. Since 2.4, this parameter is no
+		 *	longer used since a full data array is returned.
+		 * @param array $select (optional)
+		 *  Accepts an array of columns to return from `tbl_pages`. If omitted,
+		 *  all columns from the table will be returned. Since 2.4, this parameter is no
+		 *	longer used since a full data array is returned.
+		 * @param array $where (optional)
+		 *  Accepts an array of WHERE statements that will be appended with AND.
+		 *  If omitted, all pages will be returned.
+		 * @param string $order_by (optional)
+		 *  Allows a developer to return the Pages in a particular order. The string
+		 *  passed will be appended to `ORDER BY`. If omitted this will return
+		 *  Pages ordered by `sortorder`.
+		 * @param boolean $hierarchical (optional)
+		 *  If true, builds a multidimensional array representing the pages hierarchy.
+		 *  Defaults to false.
+		 * @return array|null
+		 *  An associative array of Page information with the key being the column
+		 *  name from `tbl_pages` and the value being the data. If requested, the array
+		 *  can be made multidimensional to reflect the pages hierarchy. If no Pages are
+		 *  found, null is returned.
+		 */
+		public static function fetch($include_types = true, array $select = array(), array $where = array(), $order_by = null, $hierarchical = false) {
+			$_xpath = 'page';
+			$_order_by = '';
+			$_order_direction = '';
+			if($order_by != null)
+			{
+				$a = explode(',', strtolower($order_by));
+				// Only order by the first one (current limitation, but probably never really used)
+				$a = explode(' ', trim($a[0]));
+				if(count($a) == 2)
+				{
+					$_order_by = $a[0];
+					$_order_direction = $a[1];
+				} elseif(count($a) == 1)
+				{
+					$_order_by = $a[0];
+					$_order_direction = 'asc';
+				}
+			}
+			$_where = array();
+			if(!empty($where))
+			{
+				// For now, convert MySQL to Lookup-actions (backward compatible):
+				foreach($where as $action)
+				{
+					// for backward compatibility, try to convert the SQL statement to XPath:
+					$a = explode(' ', $action);
+					if(count($a == 3))
+					{
+						$a[0] = strtolower(str_replace(array('`', '"', '\''), '', $a[0]));
+						$a[2] = strtolower(str_replace(array('`', '"', '\''), '', $a[2]));
+						// Shortcut for ID:
+						if($a[0] == 'id')
+						{
+							$_where['unique_hash'] = array(
+								$a[1], "'".self::index()->getHash($a[2])."'"
+							);
+						} elseif(strtolower($a[1]) == 'regexp')
+						{
+							// Try to simulate the regexp for datasources and events:
+							if($a[0] == 'data_sources') { $a[0] = 'datasources/datasource'; }
+							if($a[0] == 'events') { $a[0] == 'events/event'; }
+							$_where[$a[0]] = array('=', "'".str_replace(array('[[:<:]]', '[[:>:]]'), '', $a[2])."'");
+						}
+						else {
+							// Default behavior:
+							$_where[$a[0]] = array($a[1], "'".$a[2]."'");
+						}
+					} else {
+						// For debugging now:
+						// print_r($where).'<br />';
+						// print_r($a);
+					}
+				}
+			}
+			if(!empty($_where))
+			{
+				$_xpath .= '['.implode(' and ', $_where).']';
+			}
+			return self::fetchByXPath($_xpath, $_order_by, $_order_direction, $hierarchical);
+		}
+
+		/**
+		 * This function will return an associative array of Page information. The
+		 * information returned is defined by the `$include_types` and `$select`
+		 * parameters, which will return the Page Types for the Page and allow
+		 * a developer to restrict what information is returned about the Page.
+		 * Optionally, `$where` and `$order_by` parameters allow a developer to
 		 * further refine their query.
 		 *
 		 * @param string $xpath (optional)
@@ -591,8 +688,7 @@
 		 *  can be made multidimensional to reflect the pages hierarchy. If no Pages are
 		 *  found, null is returned.
 		 */
-		// public static function fetch($include_types = true, array $select = array(), array $where = array(), $order_by = null, $hierarchical = false) {
-		public static function fetch($xpath = 'page', $order_by = 'sortorder', $order_direction = 'asc', $hierarchical = false) {
+		public static function fetchByXPath($xpath = 'page', $order_by = 'sortorder', $order_direction = 'asc', $hierarchical = false) {
 
 			// if($hierarchical) $select = array_merge($select, array('id', 'parent'));
 			// if(empty($select)) $select = array('*');
@@ -798,7 +894,7 @@
 		    	'id' => array('eq', $page_id)
 			));*/
 
-			$pages = PageManager::fetch(
+			$pages = self::fetchByXPath(
 				sprintf('page[unique_hash=\'%s\']', self::index()->getHash($page_id))
 			);
 
@@ -818,7 +914,7 @@
 		 *  null is returned.
 		 */
 		public static function fetchPageByType($type = null) {
-			if(is_null($type)) return PageManager::fetch();
+			if(is_null($type)) return self::fetchByXPath();
 
 /*			$pages = Symphony::Database()->fetch(sprintf("
 					SELECT
@@ -856,7 +952,7 @@
 					'unique_hash'	=> (string)$_page->unique_hash
 				);
 			}*/
-			$pages = self::fetch(
+			$pages = self::fetchByXPath(
 				sprintf('page[types/type = \'%s\']', $type)
 			);
 
@@ -887,7 +983,7 @@
 				sprintf('parent = %d', self::index()->getHash($page_id))
 			));*/
 
-			return PageManager::fetch(
+			return self::fetchByXPath(
 				sprintf('page[unique_hash!=\'%1$s\' and parent=\'%1$s\']',
 					self::index()->getHash($page_id))
 			);
@@ -1050,7 +1146,7 @@
 				sprintf('parent = %d', self::index()->getHash($page_id))
 			));*/
 
-			$children = PageManager::fetch(
+			$children = self::fetchByXPath(
 				sprintf('page[parent=\'%s\']', self::index()->getHash($page_id))
 			);
 
@@ -1185,11 +1281,11 @@
 
 			if(is_numeric($page_id))
 			{
-				$pages = self::fetch(
+				$pages = self::fetchByXPath(
 					sprintf('page[unique_hash=\'%s\']', self::index()->getHash($page_id))
 				);
 			} else {
-				$pages = self::fetch(
+				$pages = self::fetchByXPath(
 					sprintf('page[title/@handle=\'%s\']', $page_id)
 				);
 			}
@@ -1221,7 +1317,7 @@
 					))*/
 
 				) {
-					$_page = self::fetch(
+					$_page = self::fetchByXPath(
 						sprintf('page[unique_hash=\'%s\']', self::index()->getHash($next_parent))
 					);
 					if(!empty($_page))
@@ -1335,7 +1431,7 @@
 			$xpath = 'page[title/@handle=\''.$handle.'\'';
 			if($path != false) { $xpath .= ' and path=\''.$path.'\''; }
 			$xpath .= ']';
-			$pages = self::fetch($xpath);
+			$pages = self::fetchByXPath($xpath);
 			if(count($pages) > 0)
 			{
 				return $pages[0];
@@ -1361,7 +1457,7 @@
             }*/
 
 			$page_types = array();
-			$_pages = self::fetch();
+			$_pages = self::fetchByXPath();
 
 			foreach($_pages as $_page)
 			{
