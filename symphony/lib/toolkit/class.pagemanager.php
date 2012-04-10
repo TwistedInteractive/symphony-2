@@ -78,8 +78,8 @@
 				'<event>'.implode('</event><event>', explode(',', $fields['events'])) .'</event>';
 
 			// Generate types-xml:
-			$types = empty($fields['types']) ? '' :
-				'<type>'.implode('</type><type>', $fields['types']) .'</type>';
+			$types = empty($fields['type']) ? '' :
+				'<type>'.implode('</type><type>', $fields['type']) .'</type>';
 
 			// Generate the main XML:
 			$dom = new DOMDocument();
@@ -237,7 +237,7 @@
 			));*/
 
 			$_page = $_pages[0];
-			$_page['types'] = $types;
+			$_page['type'] = $types;
 
 			self::__generatePageXML($_page);
 
@@ -408,12 +408,12 @@
 			}
 
             if($delete_types) {
-                $_data['types'] = array();
+                $_data['type'] = array();
             }
 
-            if(isset($fields['types']))
+            if(isset($fields['type']))
             {
-                $_data['types'] = $fields['types'];
+                $_data['type'] = $fields['type'];
             }
 
 			self::__generatePageXML($_data);
@@ -537,7 +537,7 @@
 			// return Symphony::Database()->delete('tbl_pages_types', sprintf(" `page_id` = %d ", $page_id));
 
 			$_page = self::fetchPageByID($page_id);
-			unset($_page['types']);
+			unset($_page['type']);
 			self::__generatePageXML($_page);
 
 			return true;
@@ -799,7 +799,7 @@
 					'events' 		=> implode(',', $_events),
 					'sortorder'		=> (string)$_page->sortorder,
 					'unique_hash'	=> (string)$_page->unique_hash,
-					'types'			=> PageManager::fetchPageTypes($page_id)
+					'type'			=> PageManager::fetchPageTypes($page_id)
 				);
 
 				// Add the page to the pages array:
@@ -1097,7 +1097,7 @@
 			if(is_array($pages)) {
 				foreach($pages as $page) {
 					$page_types[$page['id']] = array();
-					foreach($page['types'] as $type)
+					foreach($page['type'] as $type)
 					{
 						$page_types[$page['id']][] = $type;
 					}

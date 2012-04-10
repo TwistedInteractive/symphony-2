@@ -818,8 +818,8 @@
                      */
                     Symphony::ExtensionManager()->notifyMembers('PageTypePreCreate', '/blueprints/pages/', array('page_id' => $page_id, 'types' => &$types));
 
-                    $fields['types'] = $types;
-					unset($fields['type']);
+                    $fields['type'] = $types;
+					// unset($fields['type']);
 
 					$fields['parent'] = ($fields['parent'] != __('None') ? $fields['parent'] : null);
 					$fields['data_sources'] = is_array($fields['data_sources']) ? implode(',', $fields['data_sources']) : NULL;
