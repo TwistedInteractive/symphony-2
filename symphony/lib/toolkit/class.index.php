@@ -29,6 +29,9 @@ class Index
 	// The element name to use as root-tag
 	private $_element_name;
 
+	// Reference the cachable:
+	private $_cache;
+
 	/**
 	 * Get the index
 	 *
@@ -58,6 +61,7 @@ class Index
 	private function __construct($type)
 	{
 		$this->_type  = $type;
+		$this->_cache = new Cacheable(Symphony::Database());
 		// Create an index:
 		switch($this->_type)
 		{
@@ -205,16 +209,52 @@ class Index
 	/**
 	 * Setup the index. The index is a SimpleXMLElement which stores all information about all
 	 * items. Therefore, the setup only needs to be loaded once, and not for each request.
+	 *
+	 * @return bool
+	 *  true if a new index is built, false if the index from the cache is loaded
 	 */
 	public function reIndex()
 	{
-		// Build the index:
-		$this->_index = new SimpleXMLElement('<'.$this->_element_name.'/>');
+		// Load the pages:
 		$_pages = glob($this->_path);
+
+		// Build an array of md5-hashes, to check with the cached version:
+		// This is done to detect if the XML-files in the folder have been changed.
+		$_md5 = array();
 		foreach($_pages as $_page)
 		{
-			$this->mergeXML($this->_index, simplexml_load_file($_page));
+			$_md5[] = md5_file($_page);
 		}
+		$_md5_hash = md5(implode(',', $_md5));
+
+		// Check if the cached version is the same:
+		$_data = $this->_cache->check('index:'.$this->_element_name);
+		$_buildIndex = true;
+		if($_data !== false)
+		{
+			// Load the cached XML:
+			$this->_index = new SimpleXMLElement($_data['data']);
+			// Check the MD5:
+			if($this->_index['md5'] != $_md5_hash)
+			{
+				$_buildIndex = true;
+			}
+		}
+
+		// Check if an index needs to be built:
+		if($_buildIndex)
+		{
+			$this->_index = new SimpleXMLElement('<'.$this->_element_name.'/>');
+			$this->_index->addAttribute('md5', $_md5_hash);
+			foreach($_pages as $_page)
+			{
+				$this->mergeXML($this->_index, simplexml_load_file($_page));
+			}
+			// Cache it:
+			$this->_cache->write('index:'.$this->_element_name, $this->_index->saveXML());
+		}
+
+		return $_buildIndex;
 	}
 
 	/**
