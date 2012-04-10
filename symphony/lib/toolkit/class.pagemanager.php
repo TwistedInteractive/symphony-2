@@ -214,10 +214,10 @@
 		 *  An array of page types
 		 * @return boolean
 		 */
-/*		public static function addPageTypesToPage($page_id = null, array $types) {
+		public static function addPageTypesToPage($page_id = null, array $types) {
 			if(is_null($page_id)) return false;
 
-			PageManager::deletePageTypes($page_id);*/
+			PageManager::deletePageTypes($page_id);
 
 /*			foreach ($types as $type) {
 				Symphony::Database()->insert(
@@ -229,9 +229,12 @@
 				);
 			}*/
 
-/*			$_pages = self::fetch(false, array(), array(
+			$_pages = self::fetchByXPath(
+				sprintf('page[unique_hash=\'%s\']', self::index()->getHash($page_id))
+			);
+/*			false, array(), array(
 				'id' => array('eq', $page_id)
-			));
+			));*/
 
 			$_page = $_pages[0];
 			$_page['types'] = $types;
@@ -239,7 +242,7 @@
 			self::__generatePageXML($_page);
 
 			return true;
-		}*/
+		}
 
 
 		/**
@@ -528,17 +531,17 @@
 		 *  The ID of the Page that should be deleted.
 		 * @return boolean
 		 */
-/*		public static function deletePageTypes($page_id = null) {
+		public static function deletePageTypes($page_id = null) {
 			if(is_null($page_id)) return false;
 
 			// return Symphony::Database()->delete('tbl_pages_types', sprintf(" `page_id` = %d ", $page_id));
 
 			$_page = self::fetchPageByID($page_id);
-			unset($_page['type']);
+			unset($_page['types']);
 			self::__generatePageXML($_page);
 
 			return true;
-		}*/
+		}
 
 		/**
 		 * Given a Page's `$path` and `$handle`, this function will remove
@@ -796,7 +799,7 @@
 					'events' 		=> implode(',', $_events),
 					'sortorder'		=> (string)$_page->sortorder,
 					'unique_hash'	=> (string)$_page->unique_hash,
-					'type'			=> PageManager::fetchPageTypes($page_id)
+					'types'			=> PageManager::fetchPageTypes($page_id)
 				);
 
 				// Add the page to the pages array:
@@ -1086,12 +1089,18 @@
 		 *  A 2-dimensional associated array where the key is the page ID.
 		 */
 		public static function fetchAllPagesPageTypes() {
-			$types = Symphony::Database()->fetch("SELECT `page_id`,`type` FROM `tbl_pages_types`");
+			// $types = Symphony::Database()->fetch("SELECT `page_id`,`type` FROM `tbl_pages_types`");
+			$pages = self::fetchByXPath();
+
 			$page_types = array();
 
-			if(is_array($types)) {
-				foreach($types as $type) {
-					$page_types[$type['page_id']][] = $type['type'];
+			if(is_array($pages)) {
+				foreach($pages as $page) {
+					$page_types[$page['id']] = array();
+					foreach($page['types'] as $type)
+					{
+						$page_types[$page['id']][] = $type;
+					}
 				}
 			}
 
