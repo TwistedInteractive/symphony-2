@@ -25,6 +25,7 @@
 	require_once(TOOLKIT . '/class.mysql.php');
 
     require_once TOOLKIT . '/class.lookup.php';
+	require_once TOOLKIT . '/class.index.php';
 
 	require_once(TOOLKIT . '/class.authormanager.php');
 	require_once(TOOLKIT . '/class.extensionmanager.php');

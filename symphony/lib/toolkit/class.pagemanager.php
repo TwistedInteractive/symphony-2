@@ -15,13 +15,23 @@
 	Class PageManager {
 
 		/**
-		 * Return the Lookup Index for Pages
+		 * Return the Index Object for Pages
 		 *
-		 * @return Lookup
+		 * @return Index
 		 */
 		public static function index()
 		{
-			return Lookup::index(Lookup::LOOKUP_PAGES);
+			return Index::init(Index::INDEX_PAGES);
+		}
+
+		/**
+		 * Return the Lookup Object for Pages
+		 *
+		 * @return Lookup
+		 */
+		public static function lookup()
+		{
+			return Lookup::init(Lookup::LOOKUP_PAGES);
 		}
 
 		/**
@@ -46,7 +56,7 @@
 			$unique_hash = self::__generatePageXML($fields);
 			
 			// Store unique hash in the lookup table:
-			$pageID = self::index()->save($unique_hash);
+			$pageID = self::lookup()->save($unique_hash);
 
 			return $pageID;
 		}
@@ -107,7 +117,7 @@
 				$fields['sortorder'],
 				$fields['unique_hash'],
 			    $types,
-			    self::index()->getHash($fields['parent'])
+			    self::lookup()->getHash($fields['parent'])
 			));
 
 			// Save the XML:
@@ -141,22 +151,22 @@
             $_pages = self::index()->fetch();
             foreach($_pages as $_page)
             {
-                if(self::index()->getId((string)$_page->unique_hash) == false)
+                if(self::lookup()->getId((string)$_page->unique_hash) == false)
                 {
                     // No ID found for this hash, this page is new!
-                    self::index()->save((string)$_page->unique_hash);
+                    self::lookup()->save((string)$_page->unique_hash);
                 }
             }
 
             // Third, check if there are hashes in the lookup table that aren't used by any pages. This would mean
             // that a page is deleted:
-            $_hashes = self::index()->getAllHashes();
+            $_hashes = self::lookup()->getAllHashes();
             foreach($_hashes as $_hash)
             {
                 if(self::index()->xpath('page[unique_hash=\''.$_hash.'\']', true) === false)
                 {
                     // No page found with this hash, this page is deleted.
-                    self::index()->delete($_hash);
+                    self::lookup()->delete($_hash);
                 }
             }
         }
@@ -201,7 +211,7 @@
 			));*/
 
 			$hash = (string)self::index()->xpath(sprintf('page[title/@handle=\'%s\']/unique_hash', $handle), true);
-			return self::index()->getId($hash);
+			return self::lookup()->getId($hash);
 		}
 
 		/**
@@ -230,7 +240,7 @@
 			}*/
 
 			$_pages = self::fetchByXPath(
-				sprintf('page[unique_hash=\'%s\']', self::index()->getHash($page_id))
+				sprintf('page[unique_hash=\'%s\']', self::lookup()->getHash($page_id))
 			);
 /*			false, array(), array(
 				'id' => array('eq', $page_id)
@@ -397,7 +407,7 @@
 
 			// Load the original data:
 			$_data = self::fetchByXPath(
-				sprintf('page[unique_hash=\'%s\']', self::index()->getHash($page_id))
+				sprintf('page[unique_hash=\'%s\']', self::lookup()->getHash($page_id))
 			);
 			$_data = $_data[0];
 
@@ -452,6 +462,8 @@
 
 			$page_path = trim($page_path, '/');
 			$children = PageManager::fetchChildPages($page_id);
+
+			$success = true;
 
 			foreach ($children as $child) {
 				$child_id = $child['id'];
@@ -516,7 +528,7 @@
 				));*/
 
 				// Delete from lookup table:
-				self::index()->delete($page_id);
+				self::lookup()->delete($page_id);
 
 			}
 
@@ -639,7 +651,7 @@
 						if($a[0] == 'id')
 						{
 							$_where['unique_hash'] = array(
-								$a[1], "'".self::index()->getHash($a[2])."'"
+								$a[1], "'".self::lookup()->getHash($a[2])."'"
 							);
 						} elseif(strtolower($a[1]) == 'regexp')
 						{
@@ -771,7 +783,7 @@
 			foreach($_pages as $_page)
 			{
 				// Set the page ID:
-				$page_id = self::index()->getId((string)$_page->unique_hash);
+				$page_id = self::lookup()->getId((string)$_page->unique_hash);
 
 				// Set the datasources:
 				$_datasources = array();
@@ -854,13 +866,13 @@
 		 */
 		private function __getParentID($page_id)
 		{
-			$_hash = self::index()->getHash($page_id);
+			$_hash = self::lookup()->getHash($page_id);
 			$_parent_hash = self::index()->xpath(
 				sprintf('page[unique_hash = \'%s\']/parent', $_hash), true
 			);
 			if(!empty($_parent_hash))
 			{
-				return self::index()->getId($_parent_hash);
+				return self::lookup()->getId($_parent_hash);
 			} else {
 				return false;
 			}
@@ -898,7 +910,7 @@
 			));*/
 
 			$pages = self::fetchByXPath(
-				sprintf('page[unique_hash=\'%s\']', self::index()->getHash($page_id))
+				sprintf('page[unique_hash=\'%s\']', self::lookup()->getHash($page_id))
 			);
 
 			return !empty($pages) ? $pages[0] : null;
@@ -988,7 +1000,7 @@
 
 			return self::fetchByXPath(
 				sprintf('page[unique_hash!=\'%1$s\' and parent=\'%1$s\']',
-					self::index()->getHash($page_id))
+					self::lookup()->getHash($page_id))
 			);
 
 
@@ -1007,7 +1019,7 @@
 
 			if($page_id != null)
 			{
-				$_hash 	= self::index()->getHash($page_id);
+				$_hash 	= self::lookup()->getHash($page_id);
 				$_types = self::index()->xpath(sprintf('page[unique_hash=\'%s\']/types/type', $_hash));
 			} else {
 				$_types = self::index()->xpath('page/types/type');
@@ -1156,7 +1168,7 @@
 			));*/
 
 			$children = self::fetchByXPath(
-				sprintf('page[parent=\'%s\']', self::index()->getHash($page_id))
+				sprintf('page[parent=\'%s\']', self::lookup()->getHash($page_id))
 			);
 
 			$count = count($children);
@@ -1184,7 +1196,7 @@
 		public static function hasPageTypeBeenUsed($page_id = null, $type) {
 			$xpath = 'page[types/type = \''.$type.'\'';
 			if($page_id != null) {
-				$hash  = self::index()->getHash($page_id);
+				$hash  = self::lookup()->getHash($page_id);
 				$xpath.= ' and unique_hash != \''.$hash.'\'';
 			}
 			$xpath.= ']';
@@ -1216,7 +1228,7 @@
 		 */
 		public static function hasChildPages($page_id = null) {
 
-			$_hash = self::index()->getHash($page_id);
+			$_hash = self::lookup()->getHash($page_id);
 			$_children = self::index()->xpath(
 				sprintf('page[parent=\'%s\']', $_hash)
 			);
@@ -1291,7 +1303,7 @@
 			if(is_numeric($page_id))
 			{
 				$pages = self::fetchByXPath(
-					sprintf('page[unique_hash=\'%s\']', self::index()->getHash($page_id))
+					sprintf('page[unique_hash=\'%s\']', self::lookup()->getHash($page_id))
 				);
 			} else {
 				$pages = self::fetchByXPath(
@@ -1327,7 +1339,7 @@
 
 				) {
 					$_page = self::fetchByXPath(
-						sprintf('page[unique_hash=\'%s\']', self::index()->getHash($next_parent))
+						sprintf('page[unique_hash=\'%s\']', self::lookup()->getHash($next_parent))
 					);
 					if(!empty($_page))
 					{

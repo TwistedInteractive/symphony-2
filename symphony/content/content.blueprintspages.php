@@ -116,7 +116,7 @@
 				);*/
 				if(isset($parent))
 				{
-					$xpath = sprintf('page[parent=\'%s\']', PageManager::index()->getHash($parent['id']));
+					$xpath = sprintf('page[parent=\'%s\']', PageManager::lookup()->getHash($parent['id']));
 				}
 			}
 			else {
@@ -492,7 +492,7 @@
 			);*/
 			// $pages = PageManager::fetch(false, array('id'), $where, 'title ASC');
 			$pages = PageManager::fetchByXPath(
-				sprintf('page[unique_hash!=\'%s\']', PageManager::index()->getHash($page_id))
+				sprintf('page[unique_hash!=\'%s\']', PageManager::lookup()->getHash($page_id))
 			);
 
 			$options = array(
@@ -843,7 +843,7 @@
 
 					if(!empty($current)) {
 						// $where[] = "p.id != {$page_id}";
-						$where[] = 'unique_hash!=\''.PageManager::index()->getHash($page_id).'\'';
+						$where[] = 'unique_hash!=\''.PageManager::lookup()->getHash($page_id).'\'';
 					}
 					// $where[] = "p.handle = '" . $fields['handle'] . "'";
 					$where[] = 'title/@handle=\''.$fields['handle'].'\'';
