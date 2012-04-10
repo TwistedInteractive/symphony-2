@@ -179,7 +179,7 @@
 					Symphony::Database()->cleanValue($handle)
 			));*/
 
-			return (string)self::index()->xpath(sprintf('page/title[@handle=\'%s\']', $handle));
+			return (string)self::index()->xpath(sprintf('page/title[@handle=\'%s\']', $handle), true);
 		}
 
 		/**
@@ -200,7 +200,7 @@
 					Symphony::Database()->cleanValue($handle)
 			));*/
 
-			$hash = self::index()->xpath(sprintf('page[title/@handle=\'%s\']/hash', $handle));
+			$hash = (string)self::index()->xpath(sprintf('page[title/@handle=\'%s\']/unique_hash', $handle), true);
 			return self::index()->getId($hash);
 		}
 
