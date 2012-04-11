@@ -5,8 +5,8 @@
 	 */
 	/**
 	 * The `PageManager` class is responsible for providing basic CRUD operations
-	 * for Symphony frontend pages. These pages are stored in the database in
-	 * `tbl_pages` and are resolved to an instance of `FrontendPage` class from a URL.
+	 * for Symphony frontend pages. These pages are stored in seperate XML files in
+	 * `workspace/pages` and are resolved to an instance of `FrontendPage` class from a URL.
 	 * Additionally, this manager provides functions to access the Page's types,
 	 * and any linked datasources or events.
 	 *
@@ -35,8 +35,8 @@
 		}
 
 		/**
-		 * Given an associative array of data, where the key is the column name
-		 * in `tbl_pages` and the value is the data, this function will create a new
+		 * Given an associative array of data, where the key is the name of the XML Element
+		 * in `workspace/pages/[page].xml` and the value is the data, this function will create a new
 		 * Page and return a Page ID on success.
 		 *
 		 * @param array $fields
@@ -48,9 +48,6 @@
 			if(!isset($fields['sortorder'])){
 				$fields['sortorder'] = self::fetchNextSortOrder();
 			}
-
-/*			if(!Symphony::Database()->insert($fields, 'tbl_pages')) return false;
-			$pageID = Symphony::Database()->getInsertID();*/
 
 			// Generate the pages' XML:
 			$unique_hash = self::__generatePageXML($fields);
@@ -180,15 +177,6 @@
 		 *  The Page title
 		 */
 		public static function fetchTitleFromHandle($handle){
-/*			return Symphony::Database()->fetchVar('title', 0, sprintf("
-					SELECT `title`
-					FROM `tbl_pages`
-					WHERE `handle` = '%s'
-					LIMIT 1
-				",
-					Symphony::Database()->cleanValue($handle)
-			));*/
-
 			return (string)self::index()->xpath(sprintf('page/title[@handle=\'%s\']', $handle), true);
 		}
 
@@ -201,22 +189,13 @@
 		 *  The Page ID
 		 */
 		public static function fetchIDFromHandle($handle){
-/*			return Symphony::Database()->fetchVar('id', 0, sprintf("
-					SELECT `id`
-					FROM `tbl_pages`
-					WHERE `handle` = '%s'
-					LIMIT 1
-				",
-					Symphony::Database()->cleanValue($handle)
-			));*/
-
 			$hash = (string)self::index()->xpath(sprintf('page[title/@handle=\'%s\']/unique_hash', $handle), true);
 			return self::lookup()->getId($hash);
 		}
 
 		/**
 		 * Given a Page ID and an array of types, this function will add Page types
-		 * to that Page. If a Page types are stored in `tbl_pages_types`.
+		 * to that Page. Page types are stored in the XML `page/types`.
 		 *
 		 * @param integer $page_id
 		 *  The Page ID to add the Types to
@@ -229,22 +208,9 @@
 
 			PageManager::deletePageTypes($page_id);
 
-/*			foreach ($types as $type) {
-				Symphony::Database()->insert(
-					array(
-						'page_id' => $page_id,
-						'type' => $type
-					),
-					'tbl_pages_types'
-				);
-			}*/
-
 			$_pages = self::fetchByXPath(
 				sprintf('page[unique_hash=\'%s\']', self::lookup()->getHash($page_id))
 			);
-/*			false, array(), array(
-				'id' => array('eq', $page_id)
-			));*/
 
 			$_page = $_pages[0];
 			$_page['type'] = $types;
@@ -376,7 +342,7 @@
 		}
 
 		/**
-		 * This function will update a Page in `tbl_pages` given a `$page_id`
+		 * This function will update a Page in `workspace/pages` given a `$page_id`
 		 * and an associative array of `$fields`. A third parameter, `$delete_types`
 		 * will also delete the Page's associated Page Types if passed true.
 		 *
@@ -396,14 +362,6 @@
 			if(!is_numeric($page_id)) return false;
 
 			if(isset($fields['id'])) unset($fields['id']);
-
-			// Set the sortorder:
-/*			if(!isset($fields['sortorder']))
-			{
-				$_hash = self::index()->getHash($page_id);
-				$_sortorder = self::index()->xpath(sprintf('page[unique_hash=\'%s\']/sortorder', $_hash));
-				$fields['sortorder'] = (int)$_sortorder[0];
-			}*/
 
 			// Load the original data:
 			$_data = self::fetchByXPath(
@@ -429,18 +387,6 @@
 			self::__generatePageXML($_data);
 
 			return true;
-
-/*			if(Symphony::Database()->update($fields, 'tbl_pages', "`id` = '$page_id'")) {
-				// If set, this will clear the page's types.
-				if($delete_types) {
-					PageManager::deletePageTypes($page_id);
-				}
-
-				return true;
-			}
-			else {
-				return false;
-			}*/
 		}
 
 		/**
@@ -486,8 +432,8 @@
 		}
 
 		/**
-		 * This function takes a Page ID and removes the Page from the database
-		 * in `tbl_pages` and it's associated Page Types in `tbl_pages_types`.
+		 * This function takes a Page ID and removes the Page and it's
+		 * configuration from `workspace/pages`.
 		 * This function does not delete any of the Page's children.
 		 *
 		 * @see toolkit.PageManager#deletePageTypes
@@ -512,21 +458,7 @@
 				$can_proceed = PageManager::deletePageFiles($page['path'], $page['handle']);
 			}
 
-			// Delete from tbl_pages/tbl_page_types
 			if($can_proceed) {
-/*				PageManager::deletePageTypes($page_id);
-				Symphony::Database()->delete('tbl_pages', sprintf(" `id` = %d ", $page_id));
-				Symphony::Database()->query(sprintf("
-						UPDATE
-							tbl_pages
-						SET
-							`sortorder` = (`sortorder` + 1)
-						WHERE
-							`sortorder` < %d
-					",
-						$page_id
-				));*/
-
 				// Delete from lookup table:
 				self::lookup()->delete($page_id);
 
@@ -537,7 +469,7 @@
 
 		/**
 		 * Given a `$page_id`, this function will remove all associated
-		 * Page Types from `tbl_pages_types`.
+		 * Page Types from the Pages' configuration XML.
 		 *
 		 * @param integer $page_id
 		 *  The ID of the Page that should be deleted.
@@ -545,8 +477,6 @@
 		 */
 		public static function deletePageTypes($page_id = null) {
 			if(is_null($page_id)) return false;
-
-			// return Symphony::Database()->delete('tbl_pages_types', sprintf(" `page_id` = %d ", $page_id));
 
 			$_page = self::fetchPageByID($page_id);
 			unset($_page['type']);
@@ -611,8 +541,8 @@
 		 *  If true, builds a multidimensional array representing the pages hierarchy.
 		 *  Defaults to false.
 		 * @return array|null
-		 *  An associative array of Page information with the key being the column
-		 *  name from `tbl_pages` and the value being the data. If requested, the array
+		 *  An associative array of Page information with the key being the XML
+		 *  element name and the value being the data. If requested, the array
 		 *  can be made multidimensional to reflect the pages hierarchy. If no Pages are
 		 *  found, null is returned.
 		 */
@@ -683,8 +613,8 @@
 		 * information returned is defined by the `$include_types` and `$select`
 		 * parameters, which will return the Page Types for the Page and allow
 		 * a developer to restrict what information is returned about the Page.
-		 * Optionally, `$where` and `$order_by` parameters allow a developer to
-		 * further refine their query.
+		 * Optionally, the `$xpath`, `$order_by` and `$order_direction` parameters
+		 * allow a developer to further refine their query.
 		 *
 		 * @param string $xpath (optional)
 		 *  A XPath expression to filter pages out of the Pages Index.
@@ -698,86 +628,14 @@
 		 *  If true, builds a multidimensional array representing the pages hierarchy.
 		 *  Defaults to false.
 		 * @return array|null
-		 *  An associative array of Page information with the key being the column
-		 *  name from `tbl_pages` and the value being the data. If requested, the array
+		 *  An associative array of Page information with the key being the XML
+		 *  element name and the value being the data. If requested, the array
 		 *  can be made multidimensional to reflect the pages hierarchy. If no Pages are
 		 *  found, null is returned.
 		 */
 		public static function fetchByXPath($xpath = 'page', $order_by = 'sortorder', $order_direction = 'asc', $hierarchical = false) {
-
-			// if($hierarchical) $select = array_merge($select, array('id', 'parent'));
-			// if(empty($select)) $select = array('*');
-
-			// if(is_null($order_by)) $order_by = 'sortorder ASC';
-
-/*			$_where = null;
-			if(!empty($where))
-			{
-				// For now, convert MySQL to Lookup-actions (backward compatible):
-				foreach($where as $key => $action)
-				{
-					if(is_numeric($key))
-					{
-						// Numeric, so it was an indexed array
-						// for backward compatibility:
-						$a = explode(' ', $action);
-						if(count($a == 3))
-						{
-							if($a[1] == '=') 	{ $a[1] = 'eq'; }
-							if($a[1] == '!=') 	{ $a[1] = 'neq'; }
-							if($a[1] == '>') 	{ $a[1] = 'gt'; }
-							if($a[1] == '<') 	{ $a[1] = 'lt'; }
-							if($a[1] == '>=') 	{ $a[1] = 'gte'; }
-							if($a[1] == '<=') 	{ $a[1] = 'lte'; }
-							// Shortcut for ID:
-							if($a[0] == 'id')
-							{
-								$_where['unique_hash'] = array(
-									$a[1], self::index()->getHash($a[2])
-								);
-							} else {
-								$_where[$a[0]] = array($a[1], $a[2]);
-							}
-						} else {
-							// For debugging now:
-							print_r($where).'<br />';
-							print_r($a);
-						}
-					} else {
-						// Aha! An associated array!
-						// shortcut for ID:
-						if($key == 'id')
-						{
-							$_where['unique_hash'] = array(
-								$action[0], self::index()->getHash($action[1])
-							);
-						} elseif($key == 'xpath') {
-							// Xpath functionality:
-							$_where['xpath'] = $action;
-						} else {
-							$_where[$key] = $action;
-						}
-					}
-				}
-			}*/
-
 			$_pages = self::index()->fetch($xpath, $order_by, $order_direction);
 			
-/*			$pages = Symphony::Database()->fetch(sprintf("
-					SELECT
-						%s
-					FROM
-						`tbl_pages` AS p
-					WHERE
-						%s
-					ORDER BY
-						%s
-				",
-				implode(',', $select),
-				empty($where) ? '1' : implode(' AND ', $where),
-				$order_by
-			));*/
-
 			// Convert array of SimpleXMLElements to associated array:
 			$pages = array();
 			foreach($_pages as $_page)
@@ -817,15 +675,6 @@
 				// Add the page to the pages array:
 				$pages[] = $page;
 			}
-
-			// print_r($pages);
-
-			// Fetch the Page Types for each page, if required
-/*			if($include_types){
-				foreach($pages as &$page) {
-					$page['type'] = PageManager::fetchPageTypes($page['id']);
-				}
-			}*/
 
 			if($hierarchical){
 				$output = array();
@@ -887,10 +736,10 @@
 		 *  The ID of the Page, or an array of ID's
 		 * @param array $select (optional)
 		 *  Accepts an array of columns to return from `tbl_pages`. If omitted,
-		 *  all columns from the table will be returned.
+		 *  all columns from the table will be returned. Deprecated since 2.4
 		 * @return array|null
-		 *  An associative array of Page information with the key being the column
-		 *  name from `tbl_pages` and the value being the data. If multiple Pages
+		 *  An associative array of Page information with the key being the XML
+		 *  element name and the value being the data. If multiple Pages
 		 *  are found, an array of Pages will be returned. If no Pages are found
 		 *  null is returned.
 		 */
@@ -898,16 +747,6 @@
 			if(is_null($page_id)) return null;
 
 			if(is_array($page_id)) $page_id = array_pop($page_id);
-
-			if(empty($select)) $select = array('*');
-
-/*			$page = PageManager::fetch(true, $select, array(
-				sprintf("id IN ('%s')", implode(',', $page_id))
-			));*/
-
-/*			$pages = PageManager::fetch(true, $select, array(
-		    	'id' => array('eq', $page_id)
-			));*/
 
 			$pages = self::fetchByXPath(
 				sprintf('page[unique_hash=\'%s\']', self::lookup()->getHash($page_id))
@@ -918,55 +757,19 @@
 
 		/**
 		 * Returns Pages that match the given `$type`. If no `$type` is provided
-		 * the function returns the result of `PageManager::fetch`.
+		 * the function returns the result of `PageManager::fetchByXPath`.
 		 *
 		 * @param string $type
 		 *  Where the type is one of the available Page Types.
 		 * @return array|null
-		 *  An associative array of Page information with the key being the column
-		 *  name from `tbl_pages` and the value being the data. If multiple Pages
+		 *  An associative array of Page information with the key being the XML
+		 *  element name and the value being the data. If multiple Pages
 		 *  are found, an array of Pages will be returned. If no Pages are found
 		 *  null is returned.
 		 */
 		public static function fetchPageByType($type = null) {
 			if(is_null($type)) return self::fetchByXPath();
 
-/*			$pages = Symphony::Database()->fetch(sprintf("
-					SELECT
-						`p`.*
-					FROM
-						`tbl_pages` AS `p`
-					LEFT JOIN
-						`tbl_pages_types` AS `pt` ON (p.id = pt.page_id)
-					WHERE
-						`pt`.type = '%s'
-				",
-				Symphony::Database()->cleanValue($type)
-			));*/
-
-/*			$pages = self::fetch(true, array(), array(
-										 
-			));*/
-
-/*			$pages = array();
-			$_pages = self::index()->xpath(
-				sprintf('page[types/type = \'%s\']', $type)
-			);
-			foreach($_pages as $_page)
-			{
-				$pages[] = array(
-					'id'			=> self::index()->getId((string)$_page->unique_hash),
-					'parent' 		=> (string)$_page->parent,
-					'title'  		=> (string)$_page->title,
-					'handle' 		=> (string)$_page->title->attributes()->handle,
-					'path'	 		=> (string)$_page->path,
-					'params' 		=> (string)$_page->params,
-					'data_sources' 	=> (string)$_page->datasources,
-					'events' 		=> (string)$_page->events,
-					'sortorder'		=> (string)$_page->sortorder,
-					'unique_hash'	=> (string)$_page->unique_hash
-				);
-			}*/
 			$pages = self::fetchByXPath(
 				sprintf('page[types/type = \'%s\']', $type)
 			);
@@ -981,29 +784,20 @@
 		 *  The ID of the Page.
 		 * @param array $select (optional)
 		 *  Accepts an array of columns to return from `tbl_pages`. If omitted,
-		 *  all columns from the table will be returned.
+		 *  all columns from the table will be returned. Deprecated since 2.4
 		 * @return array|null
-		 *  An associative array of Page information with the key being the column
-		 *  name from `tbl_pages` and the value being the data. If multiple Pages
+		 *  An associative array of Page information with the key being the XML
+		 *  element name and the value being the data. If multiple Pages
 		 *  are found, an array of Pages will be returned. If no Pages are found
 		 *  null is returned.
 		 */
 		public static function fetchChildPages($page_id = null, array $select = array()) {
 			if(is_null($page_id)) return null;
 
-			if(empty($select)) $select = array('*');
-
-/*			return PageManager::fetch(false, $select, array(
-				sprintf('id != %d', $page_id),
-				sprintf('parent = %d', self::index()->getHash($page_id))
-			));*/
-
 			return self::fetchByXPath(
 				sprintf('page[unique_hash!=\'%1$s\' and parent=\'%1$s\']',
 					self::lookup()->getHash($page_id))
 			);
-
-
 		}
 
 		/**
@@ -1035,23 +829,6 @@
             }
 
 			return $_array;
-
-/*			return Symphony::Database()->fetchCol('type', sprintf("
-					SELECT
-						type
-					FROM
-						`tbl_pages_types` AS pt
-					WHERE
-						%s
-					GROUP BY
-						pt.type
-					ORDER BY
-						pt.type ASC
-				",
-				is_null($page_id)
-					? '1'
-					: sprintf('pt.page_id = %d', $page_id)
-			));*/
 		}
 
 		/**
@@ -1082,15 +859,6 @@
 		 *  Returns the next sort order
 		 */
 		public static function fetchNextSortOrder(){
-/*			$next = Symphony::Database()->fetchVar("next", 0, "
-				SELECT
-					MAX(p.sortorder) + 1 AS `next`
-				FROM
-					`tbl_pages` AS p
-				LIMIT 1
-			");
-			return ($next ? (int)$next : 1);*/
-
 			return self::index()->getMax('sortorder') + 1;
 		}
 
@@ -1101,7 +869,6 @@
 		 *  A 2-dimensional associated array where the key is the page ID.
 		 */
 		public static function fetchAllPagesPageTypes() {
-			// $types = Symphony::Database()->fetch("SELECT `page_id`,`type` FROM `tbl_pages_types`");
 			$pages = self::fetchByXPath();
 
 			$page_types = array();
@@ -1138,7 +905,7 @@
 		 * This function takes a `$path` and `$handle` and generates a flattened
 		 * string for use as a filename for a Page's template.
 		 *
-		 * @param string $page_path
+		 * @param string $path
 		 *  The path of the Page, which is the handles of the Page parents. If the
 		 *  page has multiple parents, they will be separated by a forward slash.
 		 *  eg. article/read. If a page has no parents, this parameter should be null.
@@ -1163,10 +930,6 @@
 		public static function getChildPagesCount($page_id = null) {
 			if(is_null($page_id)) return null;
 
-/*			$children = PageManager::fetch(false, array('id'), array(
-				sprintf('parent = %d', self::index()->getHash($page_id))
-			));*/
-
 			$children = self::fetchByXPath(
 				sprintf('page[parent=\'%s\']', self::lookup()->getHash($page_id))
 			);
@@ -1189,7 +952,7 @@
 		 * @param integer $page_id
 		 *  The ID of the Page to exclude from the query.
 		 * @param string $type
-		 *  The Page Type to look for in `tbl_page_types`.
+		 *  The Page Type to look for.
 		 * @return boolean
 		 *  True if the type is used, false otherwise
 		 */
@@ -1201,20 +964,6 @@
 			}
 			$xpath.= ']';
 			return count(self::index()->xpath($xpath)) > 0;
-
-/*			return (boolean)Symphony::Database()->fetchRow(0, sprintf("
-					SELECT
-						pt.id
-					FROM
-						`tbl_pages_types` AS pt
-					WHERE
-						pt.page_id != %d
-						AND pt.type = '%s'
-					LIMIT 1
-				",
-				$page_id,
-				Symphony::Database()->cleanValue($type)
-			));*/
 		}
 
 		/**
@@ -1233,18 +982,6 @@
 				sprintf('page[parent=\'%s\']', $_hash)
 			);
 			return count($_children) > 0;
-
-/*			return (boolean)Symphony::Database()->fetchVar('id', 0, sprintf("
-					SELECT
-						p.id
-					FROM
-						`tbl_pages` AS p
-					WHERE
-						p.parent = %d
-					LIMIT 1
-				",
-				$page_id
-			));*/
 		}
 
 		/**
@@ -1283,23 +1020,6 @@
 		 *  parent pages are prepended to the start of the array
 		 */
 		public static function resolvePage($page_id, $column) {
-			// $path = array();
-/*			$page = Symphony::Database()->fetchRow(0, sprintf("
-					SELECT
-						p.%s,
-						p.parent
-					FROM
-						`tbl_pages` AS p
-					WHERE
-						p.id = %d
-						OR p.handle = '%s'
-					LIMIT 1
-				",
-					$column,
-					$page_id,
-					Symphony::Database()->cleanValue($page_id)
-			));*/
-
 			if(is_numeric($page_id))
 			{
 				$pages = self::fetchByXPath(
@@ -1321,29 +1041,12 @@
 
 				$_continue = true;
 
-				while ($_continue
-
-
-/*					$parent = Symphony::Database()->fetchRow(0, sprintf("
-							SELECT
-								p.%s,
-								p.parent
-							FROM
-								`tbl_pages` AS p
-							WHERE
-								p.id = %d
-						",
-							$column,
-							$next_parent
-					))*/
-
-				) {
+				while ($_continue) {
 					$_page = self::fetchByXPath(
 						sprintf('page[unique_hash=\'%s\']', self::lookup()->getHash($next_parent))
 					);
 					if(!empty($_page))
 					{
-						// array_unshift($path, $parent[$column]);
 						array_unshift($path, $_page[0][$column]);
 						$next_parent = $_page['parent'];
 					} else {
@@ -1405,8 +1108,6 @@
 				sprintf('page[datasources/datasource=\'%s\'][1]', $handle), true
 			);
 			return $_page != false;
-			
-			// return Symphony::Database()->fetchVar('count', 0, "SELECT COUNT(*) AS `count` FROM `tbl_pages` WHERE `data_sources` REGEXP '[[:<:]]{$handle}[[:>:]]' ") > 0;
         }
 
         /**
@@ -1423,8 +1124,6 @@
 				sprintf('page[events/event=\'%s\'][1]', $handle), true
 			);
 			return $_page != false;
-			
-            // return Symphony::Database()->fetchVar('count', 0, "SELECT COUNT(*) AS `count` FROM `tbl_pages` WHERE `events` REGEXP '[[:<:]]{$handle}[[:>:]]' ") > 0;
         }
 
         /**
@@ -1439,16 +1138,6 @@
          */
         public static function resolvePageByPath($handle, $path = false)
         {
-/*            $sql = sprintf(
-                "SELECT * FROM `tbl_pages` WHERE `path` %s AND `handle` = '%s' LIMIT 1",
-                ($path ? " = '".Symphony::Database()->cleanValue($path)."'" : 'IS NULL'),
-                Symphony::Database()->cleanValue($handle)
-            );
-
-            $row = Symphony::Database()->fetchRow(0, $sql);*/
-
-            // return $row;
-
 			$xpath = 'page[title/@handle=\''.$handle.'\'';
 			if($path != false) { $xpath .= ' and path=\''.$path.'\''; }
 			$xpath .= ']';
@@ -1469,14 +1158,6 @@
          */
         public static function fetchPageTypeArray()
         {
-/*            $types = Symphony::Database()->fetch("SELECT `page_id`,`type` FROM `tbl_pages_types`");
-            $page_types = array();
-            if(is_array($types)) {
-                foreach($types as $type) {
-                    $page_types[$type['page_id']][] = $type['type'];
-                }
-            }*/
-
 			$page_types = array();
 			$_pages = self::fetchByXPath();
 
