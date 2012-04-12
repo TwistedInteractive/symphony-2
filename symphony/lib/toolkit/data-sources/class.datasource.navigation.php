@@ -61,6 +61,7 @@
 			$oPage = new XMLElement('page');
 			$oPage->setAttribute('handle', $page['handle']);
 			$oPage->setAttribute('id', $page['id']);
+			$oPage->setAttribute('hash', $page['unique_hash']);
 			$oPage->appendChild(new XMLElement('name', General::sanitize($page['title'])));
 
 			if(in_array($page['id'], array_keys($page_types))) {
@@ -73,7 +74,7 @@
 
 			if($page['children'] != '0') {
 				if($children = PageManager::fetchByXPath(
-					sprintf('page[parent=\'%s\']', PageManager::index()->getHash($page['id'])))
+					sprintf('page[parent=\'%s\']', PageManager::lookup()->getHash($page['id'])))
 				) {
 					foreach($children as $c) $oPage->appendChild($this->__buildPageXML($c, $page_types));
 				}
