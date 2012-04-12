@@ -475,6 +475,8 @@
 			$button->setAttributeArray(array('name' => 'action[delete]', 'class' => 'button confirm delete', 'title' => __('Delete this section'), 'type' => 'submit', 'accesskey' => 'd', 'data-message' => __('Are you sure you want to delete this section?')));
 			$div->appendChild($button);
 
+			$div->appendChild(Widget::Input('meta[unique_hash]', $meta['unique_hash'], 'hidden'));
+
 			$this->Form->appendChild($div);
 		}
 
@@ -549,6 +551,7 @@
 
 				$fields = $_POST['fields'];
 				$meta = $_POST['meta'];
+
 
 				if($edit) {
 					$section_id = $this->_context[1];
@@ -639,6 +642,7 @@
 
 				if($canProceed){
 					$meta['handle'] = Lang::createHandle($meta['name']);
+					$meta['fields'] = $fields;
 
 					// If we are creating a new Section
 					if(!$edit) {

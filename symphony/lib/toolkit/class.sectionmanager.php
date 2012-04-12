@@ -56,11 +56,16 @@
 /*			print_r($settings);
 			die();*/
 
-			if(!Symphony::Database()->insert($settings, 'tbl_sections')) return false;
+			$hash = self::__generateSectionXML($settings);
 
-			self::__generateSectionXML($settings);
+			$id   = self::lookup()->save($hash);
+			return $id;
 
-			return Symphony::Database()->getInsertID();
+			// unset($settings['fields']);
+			// if(!Symphony::Database()->insert($settings, 'tbl_sections')) return false;
+
+
+			// return Symphony::Database()->getInsertID();
 		}
 
 		/**
@@ -77,46 +82,49 @@
 			// Generate a unique hash, this only happens the first time this page is created:
 			if(!isset($fields['unique_hash']))
 			{
-				$fields['unique_hash'] = md5($fields['name'].time());
+				$fields['unique_hash'] = md5('section'.$fields['name'].time());
 			}
 
-			// Generate datasources-xml:
-/*			$datasources = empty($fields['data_sources']) ? '' :
-				'<datasource>'.implode('</datasource><datasource>', explode(',', $fields['data_sources'])) .'</datasource>';
-
-			// Generate events-xml:
-			$events = empty($fields['events']) ? '' :
-				'<event>'.implode('</event><event>', explode(',', $fields['events'])) .'</event>';
-
-			// Generate types-xml:
-			$types = empty($fields['type']) ? '' :
-				'<type>'.implode('</type><type>', $fields['type']) .'</type>';*/
-
-			/*
-<section>
-    <name>News items</name>
-    <sortorder>1</sortorder>
-    <hidden>false</hidden>
-    <navigation_group>Content</navigation_group>
-    <unique_hash>bb2c28e57b6f2cd75723f67948e3c73c</unique_hash>
-    <fields>
-        <field>
-            <label element_name="name">Name</label>
-            <unique_hash>97dcae5e3bd3c9fb78fa302c0a083947</unique_hash>
-            <type>input</type>
-            <required>true</required>
-            <sortorder>1</sortorder>
-            <location>main</location>
-            <show_column>true</show_column>
-            <configuration>
-                <validator />
-            </configuration>
-        </field>
-    </fields>
-</section>
-			 */
-
+			// Generate fields XML:
 			$fields_str = '';
+			if(!empty($fields['fields']))
+			{
+				$sortorder = 1;
+				foreach($fields['fields'] as $field)
+				{
+					// Generate a unique hash for this field:
+					if(!isset($field['unique_hash']))
+					{
+						$field['unique_hash'] = md5('field.'.$field['label'].time());
+					}
+
+					// Todo: individual fields configuration
+					$configuration = '';
+
+					$fields_str .= sprintf(
+						'<field>
+							<label element_name="%1$s">%2$s</label>
+							<unique_hash>%3$s</unique_hash>
+							<type>%4$s</type>
+							<required>%5$s</required>
+							<sortorder>%6$s</sortorder>
+							<location>%7$s</location>
+							<show_column>%8$s</show_column>
+							<configuration>%9$s</configuration>
+						</field>',
+						$field['element_name'],
+						$field['label'],
+						$field['unique_hash'],
+						$field['type'],
+						(isset($field['required']) ? $field['required'] : 'no'),
+						$sortorder,
+						$field['location'],
+						$field['show_column'],
+						$configuration
+					);
+					$sortorder++;
+				}
+			}
 
 			// Generate the main XML:
 			$dom = new DOMDocument();
@@ -124,8 +132,8 @@
 			$dom->formatOutput = true;
 			$dom->loadXML(sprintf('
 				<section>
-					<name>%1$s</name>
-					<sortorder>%2$s</sortorder>
+					<name handle="%6$s">%1$s</name>
+					<sortorder>%7$s</sortorder>
 					<hidden>%2$s</hidden>
 					<navigation_group>%3$s</navigation_group>
 					<unique_hash>%4$s</unique_hash>
@@ -133,11 +141,12 @@
 				</section>
 				',
 				$fields['name'],
-				self::fetchNextSortOrder(),
-				(isset($fields['hidden']) ? 'true' : 'false'),
+				(isset($fields['hidden']) ? $fields['hidden'] : 'no'),
 				$fields['navigation_group'],
 				$fields['unique_hash'],
-				$fields_str
+				$fields_str,
+				General::createHandle($fields['name']),
+				$fields['sortorder']
 			));
 
 			// Save the XML:
@@ -148,7 +157,7 @@
 			);
 
 			// Re-index:
-			// @Todo: optimize the code with a save-function at the end?
+			// Todo: optimize the code with a save-function at the end?
 			self::index()->reIndex();
 
 			return $fields['unique_hash'];
@@ -168,7 +177,50 @@
 		 * @return boolean
 		 */
 		public static function edit($section_id, array $settings){
-			if(!Symphony::Database()->update($settings, 'tbl_sections', " `id` = $section_id")) return false;
+
+			// Todo: load the section and merge the settings before saving it (just like pages)
+			$hash 	 = self::lookup()->getHash($section_id);
+			// $section = self::fetchByXPath(sprintf('section[unique_hash=\'%s\']', $hash));
+			$section = self::index()->xpath(sprintf('section[unique_hash=\'%s\']', $hash));
+			$section = $section[0];
+
+			$_data = array(
+				'name' => 				(string)$section->name,
+				'sortorder' => 			(string)$section->sortorder,
+				'navigation_group' =>	(string)$section->navigation_group,
+				'hidden' =>				(string)$section->hidden,
+				'fields' =>	array()
+			);
+
+			foreach($section->fields->children() as $field)
+			{
+				$_data['fields'][] = array(
+					
+				);
+			}
+
+			// merge the arrays:
+			foreach($settings as $key => $value)
+			{
+				if($key != 'fields')
+				{
+					$_data[$key] = $value;
+				} else {
+					// merge the fields:
+
+				}
+			}
+
+			print_r($_data);
+			die();
+
+			// Todo: Delete the old file, prior to saving the new file
+
+
+
+			self::__generateSectionXML($settings);
+/*			unset($settings['fields']);
+			if(!Symphony::Database()->update($settings, 'tbl_sections', " `id` = $section_id")) return false;*/
 
 			return true;
 		}
@@ -183,7 +235,37 @@
 		 *  Returns true when completed
 		 */
 		public static function delete($section_id){
-			$details = Symphony::Database()->fetchRow(0, "SELECT `sortorder` FROM tbl_sections WHERE `id` = '$section_id'");
+
+			$hash 		= self::lookup()->getHash($section_id);
+			$section    = self::fetchByXPath(sprintf('section[unique_hash=\'%s\']', $hash));
+			//$sortorder	= self::index()->xpath(sprintf('section[unique_hash=\'%s\']/sortorder', $hash), true);
+
+			// Delete all the entries
+			include_once(TOOLKIT . '/class.entrymanager.php');
+			$entries = Symphony::Database()->fetchCol('id', "SELECT `id` FROM `tbl_entries` WHERE `section_id` = '$section_id'");
+			EntryManager::delete($entries);
+
+			// Delete all the fields
+			$fields = FieldManager::fetch(null, $section_id);
+
+			if(is_array($fields) && !empty($fields)){
+				foreach($fields as $field) FieldManager::delete($field->get('id'));
+			}
+
+			// Delete the section lookup:
+			self::lookup()->delete($hash);
+
+			// Delete the section file:
+			unlink(WORKSPACE.'/sections/'.$section->get('handle').'.xml');
+
+			// Update the sort orders?
+			// Todo: is this necesarry?
+
+			// Delete the section associations?
+			// Todo: associations are going to be stored in the XML-files
+
+
+/*			$details = Symphony::Database()->fetchRow(0, "SELECT `sortorder` FROM tbl_sections WHERE `id` = '$section_id'");
 
 			// Delete all the entries
 			include_once(TOOLKIT . '/class.entrymanager.php');
@@ -204,9 +286,67 @@
 			Symphony::Database()->query("UPDATE tbl_sections SET `sortorder` = (`sortorder` - 1) WHERE `sortorder` > '".$details['sortorder']."'");
 
 			// Delete the section associations
-			Symphony::Database()->delete('tbl_sections_association', " `parent_section_id` = '$section_id'");
+			Symphony::Database()->delete('tbl_sections_association', " `parent_section_id` = '$section_id'");*/
+
+
 
 			return true;
+		}
+
+		/**
+		 * This function will return an array of Section Objects or a single Section.
+		 * Optionally, the `$xpath`, `$order_by` and `$order_direction` parameters
+		 * allow a developer to further refine their query.
+		 *
+		 * @param string $xpath (optional)
+		 *  A XPath expression to filter sections out of the Sections Index.
+		 * @param string $order_by (optional)
+		 *  Allows a developer to return the Sections in a particular order. If omitted
+		 *  this will return pages ordered by `sortorder`.
+		 * @param string $order_direction (optional)
+		 *  The direction to order (`asc` or `desc`)
+		 *  Defaults to `asc`
+		 * @return Section|array
+		 *  A Section object or an array of Section objects
+		 */
+		public static function fetchByXPath($xpath = 'section', $order_by = 'sortorder', $order_direction = 'asc') {
+			$_sections = self::index()->fetch($xpath, $order_by, $order_direction);
+
+			$returnSingle = false;
+
+			if($xpath != 'section') {
+				if(count($_sections) == 1) {
+					$returnSingle = true;
+				}
+			}
+
+			$ret = array();
+
+			foreach($_sections as $s){
+				$obj = self::create();
+
+				$obj->set('name', 				(string)$s->name);
+				$obj->set('handle', 			(string)$s->name['handle']);
+				$obj->set('sortorder',			(string)$s->sortorder);
+				$obj->set('hidden',				(string)$s->hidden);
+				$obj->set('navigation_group',	(string)$s->navigation_group);
+				$obj->set('unique_hash',		(string)$s->unique_hash);
+
+				$obj->set('id', self::lookup()->getId((string)$s->unique_hash));
+
+				// Todo: entry_order
+				// Todo: entry_order_direction
+
+/*				foreach($s as $name => $value){
+					$obj->set($name, $value);
+				}*/
+
+				self::$_pool[$obj->get('id')] = $obj;
+
+				$ret[] = $obj;
+			}
+
+			return (count($ret) == 1 && $returnSingle ? $ret[0] : $ret);
 		}
 
 		/**
@@ -215,6 +355,8 @@
 		 * possible to sort the Sections by providing a sort order and sort
 		 * field. By default, Sections will be order in ascending order by
 		 * their name
+		 *
+		 * @deprecated since 2.4
 		 *
 		 * @param integer|array $section_id
 		 *  The ID of the section to return, or an array of ID's. Defaults to null
@@ -228,7 +370,20 @@
 		 *  A Section object or an array of Section objects
 		 */
 		public static function fetch($section_id = null, $order = 'ASC', $sortfield = 'name'){
-			$returnSingle = false;
+
+			if($section_id == null)
+			{
+				return self::fetchByXPath();
+			} else {
+				$_hash = self::lookup()->getHash($section_id);
+				return self::fetchByXPath(
+					sprintf('section[unique_hash=\'%s\']', $_hash),
+					trim(strtolower($sortfield)),
+					trim(strtolower($order))
+				);
+			}
+
+/*			$returnSingle = false;
 			$section_ids = array();
 
 			if(!is_null($section_id)) {
@@ -271,7 +426,7 @@
 				$ret[] = $obj;
 			}
 
-			return (count($ret) == 1 && $returnSingle ? $ret[0] : $ret);
+			return (count($ret) == 1 && $returnSingle ? $ret[0] : $ret);*/
 		}
 
 		/**
@@ -283,7 +438,10 @@
 		 *  The Section ID
 		 */
 		public static function fetchIDFromHandle($handle){
-			return Symphony::Database()->fetchVar('id', 0, "SELECT `id` FROM `tbl_sections` WHERE `handle` = '$handle' LIMIT 1");
+			return self::lookup()->getId(self::index()->xpath(
+				sprintf('section[name/@handle=\'%s\']/unique_hash', $handle), true));
+
+			// return Symphony::Database()->fetchVar('id', 0, "SELECT `id` FROM `tbl_sections` WHERE `handle` = '$handle' LIMIT 1");
 		}
 
 		/**
@@ -293,13 +451,16 @@
 		 *  Returns the next sort order
 		 */
 		public static function fetchNextSortOrder(){
-			$next = Symphony::Database()->fetchVar("next", 0, "
+/*			$next = Symphony::Database()->fetchVar("next", 0, "
 				SELECT
 					MAX(p.sortorder) + 1 AS `next`
 				FROM
 					`tbl_sections` AS p
 				LIMIT 1
-			");
+			");*/
+
+			$next = self::index()->getMax('sortorder');
+
 			return ($next ? (int)$next : 1);
 		}
 

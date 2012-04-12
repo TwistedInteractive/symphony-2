@@ -7,3 +7,9 @@ CREATE TABLE `sym_lookup_pages` (
   `hash` varchar(32) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=utf8;
+
+CREATE TABLE `sym_lookup_sections` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `hash` varchar(32) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8;
