@@ -19,7 +19,6 @@
 			$xpath = '(';
 			$first = true;
 			foreach($parent_paths as $path) {
-				// $type_sql = " AND pt.type = '" . $type . "'";
 				if(!$first) { $xpath .= ' or '; }
 				$xpath .= 'path=\''.$path.'\'';
 				$first = false;
@@ -27,7 +26,6 @@
 			$xpath .= ')';
 
 			return $xpath;
-			// return (is_array($parent_paths) && !empty($parent_paths) ? " AND p.`path` IN ('".implode("', '", $parent_paths)."')" : null);
 		}
 
 		public function __processNavigationTypeFilter($filter, $filter_type = DS_FILTER_OR) {
@@ -37,11 +35,9 @@
 			$types = array_map(array('Datasource', 'removeEscapedCommas'), $types);
 
 			if($filter_type == DS_FILTER_OR) {
-				// $type_sql = " AND pt.type IN ('" . implode("', '", $types) . "')";
 				$xpath = '(';
 				$first = true;
 				foreach($types as $type) {
-					// $type_sql = " AND pt.type = '" . $type . "'";
 					if(!$first) { $xpath .= ' or '; }
 					$xpath .= 'types/type=\''.$type.'\'';
 					$first = false;
@@ -52,7 +48,6 @@
 				$xpath = '';
 				$first = true;
 				foreach($types as $type) {
-					// $type_sql = " AND pt.type = '" . $type . "'";
 					if(!$first) { $xpath .= ' and '; }
 					$xpath .= 'types/type=\''.$type.'\'';
 					$first = false;
@@ -89,31 +84,6 @@
 
 		public function execute(&$param_pool) {
 			$result = new XMLElement($this->dsParamROOTELEMENT);
-/*			$type_sql = $parent_sql = null;
-
-			if(trim($this->dsParamFILTERS['type']) != '') {
-				$type_sql = $this->__processNavigationTypeFilter($this->dsParamFILTERS['type'], $this->__determineFilterType($this->dsParamFILTERS['type']));
-			}
-
-			if(trim($this->dsParamFILTERS['parent']) != '') {
-				$parent_sql = $this->__processNavigationParentFilter($this->dsParamFILTERS['parent']);
-			}
-
-			// Build the Query appending the Parent and/or Type WHERE clauses
-			$pages = Symphony::Database()->fetch(sprintf("
-					SELECT DISTINCT p.id, p.title, p.handle, (SELECT COUNT(id) FROM `tbl_pages` WHERE parent = p.id) AS children
-					FROM `tbl_pages` AS p
-					LEFT JOIN `tbl_pages_types` AS pt ON (p.id = pt.page_id)
-					WHERE 1 = 1
-					%s
-					%s
-					ORDER BY p.`sortorder` ASC
-				",
-				// Add Parent SQL
-				!is_null($parent_sql) ? $parent_sql : " AND p.parent IS NULL ",
-				// Add Types SQL
-				!is_null($type_sql) ? $type_sql : ""
-			));*/
 
 			$xpath = 'page';
 			$closebracket = false;

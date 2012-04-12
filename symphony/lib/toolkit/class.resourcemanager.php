@@ -17,12 +17,12 @@
 	Class ResourceManager {
 
 		/**
-		 * A private method used to return the `tbl_pages` column related to the given resource type.
+		 * A private method used to return the Pages' XML element related to the given resource type.
 		 *
 		 * @param integer $type
 		 *  The resource type, either `RESOURCE_TYPE_EVENT` or `RESOURCE_TYPE_DS`
 		 * @return string
-		 *  A string representing the `tbl_pages` column to target.
+		 *  A string representing the Pages' XML element to target.
 		 */
 		private static function getColumnFromType($type) {
 			switch($type) {

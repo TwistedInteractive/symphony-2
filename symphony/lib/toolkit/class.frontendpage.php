@@ -40,7 +40,7 @@
 		private $_page;
 
 		/**
-		 * An associative array of the resolved pages's data as returned from `tbl_pages`
+		 * An associative array of the resolved pages's data as returned from the Pages' XML-file
 		 * with the keys mapping to the columns in that table. Additionally, 'file-location'
 		 * and 'type' are also added to this array
 		 *
@@ -109,7 +109,7 @@
 
 		/**
 		 * Accessor function for the resolved page's data (`$this->_pageData`)
-		 * as it lies in `tbl_pages`
+		 * as it lies in the Pages' XML-file
 		 *
 		 * @return array
 		 */
@@ -306,8 +306,8 @@
 			 * @param FrontendPage $page
 			 *  An instance of this class, passed by reference
 			 * @param array $page_data
-			 *  An associative array of page data, which is a combination from `tbl_pages` and
-			 *  the path of the page on the filesystem. Passed by reference
+			 *  An associative array of page data, which is a combination from the information in
+			 *  the Pages' XML-file and the path of the page on the filesystem. Passed by reference
 			 */
 			Symphony::ExtensionManager()->notifyMembers('FrontendPageResolved', '/frontend/', array('page' => &$this, 'page_data' => &$page));
 
@@ -897,7 +897,7 @@
 		}
 
 		/**
-		 * Given a page ID, return it's type from `tbl_pages`
+		 * Given a page ID, return it's type from the Pages' XML file.
 		 *
 		 * @deprecated This function will be removed in Symphony 2.4. Use
 		 * `PageManager::fetchPageTypes` instead.

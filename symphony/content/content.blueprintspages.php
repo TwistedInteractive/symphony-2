@@ -800,7 +800,7 @@
 					$types = @array_map('trim', $types);
 
                     /**
-                     * Just before the page's types are saved into `tbl_pages_types`.
+                     * Just before the page's types are saved into the pages' XML file.
                      * Use with caution as no further processing is done on the `$types`
                      * array to prevent duplicate `$types` from occurring (ie. two index
                      * page types). Your logic can use the PageManger::hasPageTypeBeenUsed
@@ -893,7 +893,7 @@
 						if(empty($current)) {
 
 							/**
-							 * Just prior to creating a new Page record in `tbl_pages`, provided
+							 * Just prior to creating a new Page XML file in `workspace/pages`, provided
 							 * with the `$fields` associative array. Use with caution, as no
 							 * duplicate page checks are run after this delegate has fired
 							 *
@@ -917,7 +917,7 @@
 							}
 							else {
 								/**
-								 * Just after the creation of a new page in `tbl_pages`
+								 * Just after the creation of a new page XML in `workspace/pages`
 								 *
 								 * @delegate PagePostCreate
 								 * @since Symphony 2.2
@@ -938,7 +938,7 @@
 						else {
 
 							/**
-							 * Just prior to updating a Page record in `tbl_pages`, provided
+							 * Just prior to updating a Page XML in `workspace/pages`, provided
 							 * with the `$fields` associative array. Use with caution, as no
 							 * duplicate page checks are run after this delegate has fired
 							 *
@@ -964,7 +964,7 @@
 							}
 							else {
 								/**
-								 * Just after updating a page in `tbl_pages`
+								 * Just after updating a pages' XML in `workspace/pages`
 								 *
 								 * @delegate PagePostEdit
 								 * @since Symphony 2.2
