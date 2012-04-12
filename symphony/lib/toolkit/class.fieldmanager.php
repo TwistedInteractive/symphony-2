@@ -563,6 +563,20 @@
 		}
 
 		/**
+		 * Returns an array of ID's of fields which are present in the section, but which not occur in the $id_list.
+		 * @param $section_id
+		 *  The ID of the section
+		 * @param $id_list
+		 *  An array with ID's of fields
+		 * @return array
+		 *  An array with ID's of fields
+		 */
+		public static function fetchRemovedFieldsFromSection($section_id, $id_list)
+		{
+			return Symphony::Database()->fetchCol('id', "SELECT `id` FROM `tbl_fields` WHERE `parent_section` = '$section_id' AND `id` NOT IN ('".@implode("', '", $id_list)."')");
+		}
+
+		/**
 		 * Returns an array of all available field handles discovered in the
 		 * `TOOLKIT . /fields` or `EXTENSIONS . /{}/fields`.
 		 *
