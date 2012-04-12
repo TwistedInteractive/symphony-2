@@ -72,6 +72,12 @@ class Index
 					$this->reIndex();
 					break;
 				}
+			case self::INDEX_SECTIONS :
+				{
+					$this->_path = WORKSPACE.'/sections/*.xml';
+					$this->_element_name = 'sections';
+					$this->reIndex();
+				}
 		}
 	}
 

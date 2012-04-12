@@ -21,6 +21,26 @@
 		protected static $_pool = array();
 
 		/**
+		 * Return a reference to the sections index
+		 *
+		 * @return Index
+		 */
+		public static function index()
+		{
+			return Index::init(Index::INDEX_SECTIONS);
+		}
+
+		/**
+		 * Return a reference to the sections lookup
+		 *
+		 * @return Lookup
+		 */
+		public static function lookup()
+		{
+			return Lookup::init(Lookup::LOOKUP_SECTIONS);
+		}
+
+		/**
 		 * Takes an associative array of Section settings and creates a new
 		 * entry in the `tbl_sections` table, returning the ID of the Section.
 		 * The ID of the section is generated using auto_increment and returned
@@ -33,9 +53,105 @@
 		 *  The newly created Section's ID
 		 */
 		public static function add(array $settings){
+/*			print_r($settings);
+			die();*/
+
 			if(!Symphony::Database()->insert($settings, 'tbl_sections')) return false;
 
+			self::__generateSectionXML($settings);
+
 			return Symphony::Database()->getInsertID();
+		}
+
+		/**
+		 * Generate the Section XML
+		 *
+		 * @param $fields
+		 *  Associative array of fields names => values for the Section
+		 * @return string
+		 *  The unique hash of this section
+		 */
+		private function __generateSectionXML($fields)
+		{
+			// Generate Section XML-file:
+			// Generate a unique hash, this only happens the first time this page is created:
+			if(!isset($fields['unique_hash']))
+			{
+				$fields['unique_hash'] = md5($fields['name'].time());
+			}
+
+			// Generate datasources-xml:
+/*			$datasources = empty($fields['data_sources']) ? '' :
+				'<datasource>'.implode('</datasource><datasource>', explode(',', $fields['data_sources'])) .'</datasource>';
+
+			// Generate events-xml:
+			$events = empty($fields['events']) ? '' :
+				'<event>'.implode('</event><event>', explode(',', $fields['events'])) .'</event>';
+
+			// Generate types-xml:
+			$types = empty($fields['type']) ? '' :
+				'<type>'.implode('</type><type>', $fields['type']) .'</type>';*/
+
+			/*
+<section>
+    <name>News items</name>
+    <sortorder>1</sortorder>
+    <hidden>false</hidden>
+    <navigation_group>Content</navigation_group>
+    <unique_hash>bb2c28e57b6f2cd75723f67948e3c73c</unique_hash>
+    <fields>
+        <field>
+            <label element_name="name">Name</label>
+            <unique_hash>97dcae5e3bd3c9fb78fa302c0a083947</unique_hash>
+            <type>input</type>
+            <required>true</required>
+            <sortorder>1</sortorder>
+            <location>main</location>
+            <show_column>true</show_column>
+            <configuration>
+                <validator />
+            </configuration>
+        </field>
+    </fields>
+</section>
+			 */
+
+			$fields_str = '';
+
+			// Generate the main XML:
+			$dom = new DOMDocument();
+			$dom->preserveWhiteSpace = false;
+			$dom->formatOutput = true;
+			$dom->loadXML(sprintf('
+				<section>
+					<name>%1$s</name>
+					<sortorder>%2$s</sortorder>
+					<hidden>%2$s</hidden>
+					<navigation_group>%3$s</navigation_group>
+					<unique_hash>%4$s</unique_hash>
+					<fields>%5$s</fields>
+				</section>
+				',
+				$fields['name'],
+				self::fetchNextSortOrder(),
+				(isset($fields['hidden']) ? 'true' : 'false'),
+				$fields['navigation_group'],
+				$fields['unique_hash'],
+				$fields_str
+			));
+
+			// Save the XML:
+			General::writeFile(
+				WORKSPACE.'/sections/'.General::createHandle($fields['name']).'.xml',
+				$dom->saveXML(),
+				Symphony::Configuration()->get('write_mode', 'file')
+			);
+
+			// Re-index:
+			// @Todo: optimize the code with a save-function at the end?
+			self::index()->reIndex();
+
+			return $fields['unique_hash'];
 		}
 
 		/**
