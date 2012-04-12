@@ -254,6 +254,18 @@ class Index
 			$this->_cache->write('index:'.$this->_element_name, $this->_index->saveXML());
 		}
 
+		/**
+		 * Provide a hook to adjust the index
+		 *
+		 * @delegate IndexBuilt
+		 * @since Symphony 2.4
+		 * @param string $context
+		 * '/global/'
+		 * @param SimpleXMLElement $this->_index
+		 *  A reference to the index
+		 */
+		Symphony::ExtensionManager()->notifyMembers('IndexBuilt', '/global/', array('index' => $this->_index));
+
 		return $_buildIndex;
 	}
 
