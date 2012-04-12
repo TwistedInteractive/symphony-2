@@ -142,7 +142,7 @@
 						// Default Area
 						if(in_array('default-area', $this->dsParamINCLUDEDELEMENTS) && !is_null($author->get('default_area'))) {
 							// Section
-                            if($section = SectionManager::fetch($author->get('default_area'))){
+							if($section = SectionManager::fetch($author->get('default_area'))){
 								$default_area = new XMLElement('default-area', $section->get('name'));
 								$default_area->setAttributeArray(array('id' => $section->get('id'), 'handle' => $section->get('handle'), 'type' => 'section'));
 								$xAuthor->appendChild($default_area);

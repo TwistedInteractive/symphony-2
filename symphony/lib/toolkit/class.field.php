@@ -593,7 +593,7 @@
 		}
 
 		/**
-		 * Append and set a labelled html checkbox to the input XML element if this
+		 * Append and set a labeled html checkbox to the input XML element if this
 		 * field is set as a required field.
 		 *
 		 * @param XMLElement $wrapper
@@ -640,7 +640,7 @@
 
 			if ($this->get('show_column') == 'yes') $input->setAttribute('checked', 'checked');
 
-			$label->setValue(__('%s Display field’s value in entries table', array($input->generate())));
+			$label->setValue(__('%s Display in entries table', array($input->generate())));
 
 			$wrapper->appendChild($label);
 		}
@@ -670,7 +670,7 @@
 
 			if ($this->get('show_association') == 'yes') $input->setAttribute('checked', 'checked');
 
-			$label->setValue(__('%s Display relationship in linked sections', array($input->generate())));
+			$label->setValue(__('%s Display relationship in entries table', array($input->generate())));
 
 			if ($help) $label->appendChild(new XMLElement('i', $help));
 
@@ -712,8 +712,7 @@
 				$errors['element_name'] = __('Invalid element name. Must be valid %s.', array('<code>QName</code>'));
 			}
 			elseif($checkForDuplicates) {
-
-				if (FieldManager::fieldExists($element_name, $parent_section, $this->get('id'))) {
+				if(FieldManager::fetchFieldIDFromElementName($element_name, $parent_section) != $this->get('id')) {
 					$errors['element_name'] = __('A field with that element name already exists. Please choose another.');
 				}
 			}
@@ -1194,6 +1193,8 @@
 		/**
 		 * Create an association between a section and a field.
 		 *
+		 * @deprecated This function will be removed in a future Symphony release,
+		 *  Use `SectionManager::createSectionAssociation` instead.
 		 * @param integer $parent_section_id
 		 *  The linked section id.
 		 * @param integer $child_field_id
@@ -1213,11 +1214,14 @@
 		/**
 		 * Permanently remove a section association for this field in the database.
 		 *
+		 * @deprecated This function will be removed in a future Symphony release,
+		 *  Use `SectionManager::removeSectionAssociation` instead.
 		 * @param integer $child_field_id
 		 *  the field ID of the linked section's linked field.
+		 * @return boolean
 		 */
 		public function removeSectionAssociation($child_field_id){
-			SectionManager::removeSectionAssociation($child_field_id);
+			return SectionManager::removeSectionAssociation($child_field_id);
 		}
 
 		/**

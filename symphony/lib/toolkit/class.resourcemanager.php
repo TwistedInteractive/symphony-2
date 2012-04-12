@@ -17,12 +17,12 @@
 	Class ResourceManager {
 
 		/**
-		 * A private method used to return the `tbl_pages` column related to the given resource type.
+		 * A private method used to return the Pages' XML element related to the given resource type.
 		 *
 		 * @param integer $type
 		 *  The resource type, either `RESOURCE_TYPE_EVENT` or `RESOURCE_TYPE_DS`
 		 * @return string
-		 *  A string representing the `tbl_pages` column to target.
+		 *  A string representing the Pages' XML element to target.
 		 */
 		private static function getColumnFromType($type) {
 			switch($type) {
@@ -283,14 +283,14 @@
 			{
 				case 'data_sources' :
 					{
-						$pages = PageManager::fetch(
+						$pages = PageManager::fetchByXPath(
 							sprintf('page[datasources/datasource=\'%s\']', $r_handle)
 						);
 						break;
 					}
 				case 'events' :
 					{
-						$pages = PageManager::fetch(
+						$pages = PageManager::fetchByXPath(
 							sprintf('page[events/event=\'%s\']', $r_handle)
 						);
 						break;
@@ -318,7 +318,7 @@
 				'`id` = %d', $page_id
 			)));*/
 
-			$pages = PageManager::fetch(
+			$pages = PageManager::fetchByXPath(
 				sprintf('page[unique_hash=\'%s\']', PageManager::index()->getHash($page_id))
 			);
 
@@ -357,7 +357,7 @@
 				'`id` = %d', $page_id
 			)));*/
 
-			$pages = PageManager::fetch(
+			$pages = PageManager::fetchByXPath(
 				sprintf('page[unique_hash=\'%s\']', PageManager::index()->getHash($page_id))
 			);
 

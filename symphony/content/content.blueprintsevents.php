@@ -244,7 +244,7 @@
 						`events` REGEXP '[[:<:]]" . $this->_context[1] . "[[:>:]]'
 					"));*/
 
-					$pages = PageManager::fetch(
+					$pages = PageManager::fetchByXPath(
 						sprintf('page[events/event=\'%s\']', $this->_context[1])
 					);
 
@@ -538,7 +538,7 @@
 							`events` REGEXP '[[:<:]]" . $existing_handle . "[[:>:]]'
 						"));*/
 
-						$pages = PageManager::fetch(
+						$pages = PageManager::fetchByXPath(
 							sprintf('page[events/event=\'%s\']', $existing_handle)
 						);
 

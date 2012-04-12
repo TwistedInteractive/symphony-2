@@ -30,7 +30,7 @@
 
 		/**
 		 * An associative array of the details of the Page that is being 'Devkitted'.
-		 * The majority of this information is from `tbl_pages` table.
+		 * The majority of this information is from the Pages' XML-file.
 		 * @var array
 		 */
 		protected $_pagedata = null;
@@ -224,7 +224,7 @@
 		 * @param array $pagedata
 		 *	An associative array of the details of the Page that is
 		 *	being 'Devkitted'. The majority of this information is from
-		 *	tbl_pages table.
+		 *	the Pages' XML file.
 		 * @param string $xml
 		 *	The XML of the page that the XSLT will be applied to, this includes
 		 *	any datasource results.

@@ -63,7 +63,7 @@
 
 		public function listAllPages($separator = '/') {
 			// $pages = PageManager::fetch(false, array('id', 'handle', 'title', 'path'));
-			$pages = PageManager::fetch();
+			$pages = PageManager::fetchByXPath();
 
 			foreach($pages as &$page){
 				$parents = explode('/', $page['path']);
@@ -116,7 +116,7 @@
 				);*/
 				if(isset($parent))
 				{
-					$xpath = sprintf('page[parent=\'%s\']', PageManager::index()->getHash($parent['id']));
+					$xpath = sprintf('page[parent=\'%s\']', PageManager::lookup()->getHash($parent['id']));
 				}
 			}
 			else {
@@ -124,7 +124,7 @@
 			}
 
 			// $pages = PageManager::fetch(true, array('*'), $where);
-			$pages = PageManager::fetch($xpath);
+			$pages = PageManager::fetchByXPath($xpath);
 
 			if(!is_array($pages) or empty($pages)) {
 				$aTableBody = array(Widget::TableRow(array(
@@ -228,7 +228,7 @@
 				"p.handle = '{$pagename}'"
 			));*/
 
-			$pagedata = PageManager::fetch(sprintf('page[title/@handle=\'%s\']', $pagename));
+			$pagedata = PageManager::fetchByXPath(sprintf('page[title/@handle=\'%s\']', $pagename));
 			
 			$pagedata = array_pop($pagedata);
 
@@ -491,8 +491,8 @@
 				sprintf('id != %d', $page_id)
 			);*/
 			// $pages = PageManager::fetch(false, array('id'), $where, 'title ASC');
-			$pages = PageManager::fetch(
-				sprintf('page[unique_hash!=\'%s\']', PageManager::index()->getHash($page_id))
+			$pages = PageManager::fetchByXPath(
+				sprintf('page[unique_hash!=\'%s\']', PageManager::lookup()->getHash($page_id))
 			);
 
 			$options = array(
@@ -800,7 +800,7 @@
 					$types = @array_map('trim', $types);
 
                     /**
-                     * Just before the page's types are saved into `tbl_pages_types`.
+                     * Just before the page's types are saved into the pages' XML file.
                      * Use with caution as no further processing is done on the `$types`
                      * array to prevent duplicate `$types` from occurring (ie. two index
                      * page types). Your logic can use the PageManger::hasPageTypeBeenUsed
@@ -818,8 +818,8 @@
                      */
                     Symphony::ExtensionManager()->notifyMembers('PageTypePreCreate', '/blueprints/pages/', array('page_id' => $page_id, 'types' => &$types));
 
-                    $fields['types'] = $types;
-					unset($fields['type']);
+                    $fields['type'] = $types;
+					// unset($fields['type']);
 
 					$fields['parent'] = ($fields['parent'] != __('None') ? $fields['parent'] : null);
 					$fields['data_sources'] = is_array($fields['data_sources']) ? implode(',', $fields['data_sources']) : NULL;
@@ -843,7 +843,7 @@
 
 					if(!empty($current)) {
 						// $where[] = "p.id != {$page_id}";
-						$where[] = 'unique_hash!=\''.PageManager::index()->getHash($page_id).'\'';
+						$where[] = 'unique_hash!=\''.PageManager::lookup()->getHash($page_id).'\'';
 					}
 					// $where[] = "p.handle = '" . $fields['handle'] . "'";
 					$where[] = 'title/@handle=\''.$fields['handle'].'\'';
@@ -852,7 +852,7 @@
 						: 'path=\''.$fields['path'].'\'';
 					$xpath .= '['.implode(' and ', $where).']';
 					// $duplicate = PageManager::fetch(false, array('*'), $where);
-					$duplicate = PageManager::fetch($xpath);
+					$duplicate = PageManager::fetchByXPath($xpath);
 
 					// If duplicate
 					if(!empty($duplicate)) {
@@ -893,7 +893,7 @@
 						if(empty($current)) {
 
 							/**
-							 * Just prior to creating a new Page record in `tbl_pages`, provided
+							 * Just prior to creating a new Page XML file in `workspace/pages`, provided
 							 * with the `$fields` associative array. Use with caution, as no
 							 * duplicate page checks are run after this delegate has fired
 							 *
@@ -917,7 +917,7 @@
 							}
 							else {
 								/**
-								 * Just after the creation of a new page in `tbl_pages`
+								 * Just after the creation of a new page XML in `workspace/pages`
 								 *
 								 * @delegate PagePostCreate
 								 * @since Symphony 2.2
@@ -938,7 +938,7 @@
 						else {
 
 							/**
-							 * Just prior to updating a Page record in `tbl_pages`, provided
+							 * Just prior to updating a Page XML in `workspace/pages`, provided
 							 * with the `$fields` associative array. Use with caution, as no
 							 * duplicate page checks are run after this delegate has fired
 							 *
@@ -964,7 +964,7 @@
 							}
 							else {
 								/**
-								 * Just after updating a page in `tbl_pages`
+								 * Just after updating a pages' XML in `workspace/pages`
 								 *
 								 * @delegate PagePostEdit
 								 * @since Symphony 2.2
