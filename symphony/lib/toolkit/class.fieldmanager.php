@@ -27,6 +27,30 @@
 		private static $_initialiased_fields = array();
 
 		/**
+		 * Return the Section Index. For fields, the Section Index is used, since fields are stored inside the Sections'
+		 * XML files.
+		 *
+		 * @return Index
+		 *  The Section Index
+		 */
+		public static function index()
+		{
+			// The fields use the same index as the sections, since fields are stored in sections
+			return Index::init(Index::INDEX_SECTIONS);
+		}
+
+		/**
+		 * Return the Lookup for Fields.
+		 *
+		 * @return Lookup
+		 */
+		public static function lookup()
+		{
+			return Lookup::init(Lookup::LOOKUP_FIELDS);
+		}
+
+
+		/**
 		 * Given the filename of a Field, return it's handle. This will remove
 		 * the Symphony conventions of `field.*.php`
 		 *
@@ -112,10 +136,101 @@
 				$fields['sortorder'] = self::fetchNextSortOrder();
 			}
 
-			if(!Symphony::Database()->insert($fields, 'tbl_fields')) return false;
-			$field_id = Symphony::Database()->getInsertID();
+			$_hash = self::__generateXML($fields);
+
+			$field_id = self::lookup()->save($_hash);
+
+/*			if(!Symphony::Database()->insert($fields, 'tbl_fields')) return false;
+			$field_id = Symphony::Database()->getInsertID();*/
 
 			return $field_id;
+		}
+
+		private function __generateXML($fields)
+		{
+			if(!isset($fields['unique_hash']))
+			{
+				$fields['unique_hash'] = md5($fields['name'].time());
+			}
+
+			$configuration = '';
+			// Get the available configuration fields from the field itself:
+			$configuration_fields = FieldManager::create($fields['type'])->getConfiguration();
+			if(!empty($configuration_fields))
+			{
+				foreach($configuration_fields as $configuration_field)
+				{
+					if(isset($fields[$configuration_field]))
+					{
+						$configuration .= '<'.$configuration_field.'>'.$fields[$configuration_field].'</'.$configuration_field.'>';
+					}
+				}
+			}
+
+			// Generate the field XML:
+			$field_str = sprintf(
+				'<field>
+					<label element_name="%1$s">%2$s</label>
+					<unique_hash>%3$s</unique_hash>
+					<type>%4$s</type>
+					<required>%5$s</required>
+					<sortorder>%6$s</sortorder>
+					<location>%7$s</location>
+					<show_column>%8$s</show_column>
+					<configuration>%9$s</configuration>
+				</field>',
+				$fields['element_name'],
+				$fields['label'],
+				$fields['unique_hash'],
+				$fields['type'],
+				(isset($fields['required']) ? $fields['required'] : 'no'),
+				$fields['sortorder'],
+				$fields['location'],
+				$fields['show_column'],
+				$configuration
+			);
+			$fieldXML = new SimpleXMLElement($field_str);
+
+			// Store the field XML in the section:
+			$section_hash = SectionManager::lookup()->getHash($fields['parent_section']);
+
+			if(count(
+				self::index()->xpath(
+					sprintf('section[unique_hash=\'%s\']/fields', $section_hash)
+				)) == 0)
+			{
+				// No fields found, create field element:
+				$section = self::index()->xpath(sprintf('section[unique_hash=\'%s\']', $section_hash));
+				$section[0]->addChild('fields');
+			}
+
+			// Reference to fields node:
+			$root = self::index()->xpath(
+				sprintf('section[unique_hash=\'%s\']/fields', $section_hash)
+			);
+
+			// Add the field:
+			self::index()->mergeXML($root[0], $fieldXML);
+
+			// Save the new section XML file:
+			$dom = new DOMDocument();
+			$dom->preserveWhiteSpace = false;
+			$dom->formatOutput = true;
+			$dom->loadXML(self::index()->getIndex()->saveXML());
+
+			// Save the XML:
+			General::writeFile(
+				WORKSPACE.'/sections/'.self::index()->xpath(
+					sprintf('section[unique_hash=\'%s\']/name/@handle', $section_hash), true).'.xml',
+				$dom->saveXML(),
+				Symphony::Configuration()->get('write_mode', 'file')
+			);
+
+			// Re-index:
+			// Todo: optimize the code with a save-function at the end?
+			self::index()->reIndex();
+
+			return $fields['unique_hash'];
 		}
 
 		/**
@@ -414,14 +529,16 @@
 		 *  Returns the next sort order
 		 */
 		public static function fetchNextSortOrder(){
-			$next = Symphony::Database()->fetchVar("next", 0, "
+/*			$next = Symphony::Database()->fetchVar("next", 0, "
 				SELECT
 					MAX(p.sortorder) + 1 AS `next`
 				FROM
 					`tbl_fields` AS p
 				LIMIT 1
 			");
-			return ($next ? (int)$next : 1);
+			return ($next ? (int)$next : 1);*/
+
+			return count(self::index()->xpath('section/fields/field')) + 1;
 		}
 
 		/**
