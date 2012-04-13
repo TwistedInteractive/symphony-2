@@ -270,7 +270,8 @@ class Index
 		 * @param SimpleXMLElement $this->_index
 		 *  A reference to the index
 		 */
-		Symphony::ExtensionManager()->notifyMembers('IndexBuilt', '/global/', array('index' => $this->_index));
+		Symphony::ExtensionManager()->notifyMembers('PostIndexBuilt',
+			(class_exists('Administration') ? '/backend/' : '/frontend/'), array('index' => $this->_index));
 
 		return $_buildIndex;
 	}
@@ -307,5 +308,78 @@ class Index
 	public function getIndex()
 	{
 		return $this->_index;
+	}
+
+	/**
+	 * Edit the value of a node in the index (note: this does not save the index to a new file)
+	 *
+	 * @param $xpath
+	 *  The XPath to the node to edit
+	 * @param $value
+	 *  The new value of the node
+	 */
+	public function editValue($xpath, $value)
+	{
+		$node = $this->xpath($xpath);
+		$node = $node[0];
+		$node[0] = $value;
+	}
+
+	/**
+	 * Edit the value of a node in the index (note: this does not save the index to a new file)
+	 *
+	 * @param $xpath
+	 *  The XPath to the node to edit
+	 * @param $attribute
+	 *  The name of the attribute to edit
+	 * @param $value
+	 *  The new value of the node
+	 */
+	public function editAttribute($xpath, $attribute, $value)
+	{
+		$node = $this->xpath($xpath);
+		$node = $node[0];
+		$node[$attribute] = $value;
+	}
+
+	/**
+	 * Remove a node from the index
+	 *
+	 * @param $xpath
+	 *  The XPath to the specific node to remove
+	 */
+	public function removeNode($xpath)
+	{
+		$node = $this->xpath($xpath);
+		$node = $node[0];
+		unset($node);
+	}
+
+	/**
+	 * Get formatted XML from the Index
+	 *
+	 * @param $xpath
+	 *  The XPath to get the XML from
+	 * @return string
+	 *  The formatted XML
+	 */
+	public function getFormattedXML($xpath)
+	{
+		// Fetch all nodes and convert them to a XML string:
+		$nodes = $this->xpath($xpath);
+		$xmlString = '';
+		foreach($nodes as $node)
+		{
+			$xmlString .= str_replace('<?xml version="1.0"?>', '', $node->saveXML());
+		}
+
+		// Make it pretty:
+		$dom = new DOMDocument();
+		$dom->preserveWhiteSpace = false;
+		$dom->formatOutput = true;
+		$dom->loadXML($xmlString);
+
+		// Return the XML string:
+		return $dom->saveXML();
 	}
 }
