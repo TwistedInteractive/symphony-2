@@ -87,6 +87,7 @@
 
 			// Generate fields XML:
 			$fields_str = '';
+			/*
 			if(!empty($fields['fields']))
 			{
 				$sortorder = 1;
@@ -98,8 +99,17 @@
 						$field['unique_hash'] = md5('field.'.$field['label'].time());
 					}
 
-					// Todo: individual fields configuration
+					// Store the configuration fields:
 					$configuration = '';
+					// Get the available configuration fields from the field itself:
+					$configuration_fields = FieldManager::create($field['type'])->getConfiguration();
+					if(!empty($configuration_fields))
+					{
+						foreach($configuration_fields as $configuration_field)
+						{
+							$configuration .= '<'.$configuration_field.'>'.$field[$configuration_field].'</'.$configuration_field.'>';
+						}
+					}
 
 					$fields_str .= sprintf(
 						'<field>
@@ -125,6 +135,8 @@
 					$sortorder++;
 				}
 			}
+*/
+
 
 			// Generate the main XML:
 			$dom = new DOMDocument();
@@ -184,21 +196,41 @@
 			$section = self::index()->xpath(sprintf('section[unique_hash=\'%s\']', $hash));
 			$section = $section[0];
 
+			// Load the section data:
 			$_data = array(
 				'name' => 				(string)$section->name,
 				'sortorder' => 			(string)$section->sortorder,
 				'navigation_group' =>	(string)$section->navigation_group,
 				'hidden' =>				(string)$section->hidden,
-				'fields' =>	array()
+				'fields' =>				array()
 			);
 
-			foreach($section->fields->children() as $field)
+			// Load the fields:
+/*			if(!empty($section->fields))
 			{
-				$_data['fields'][] = array(
-					
-				);
-			}
-
+				foreach($section->fields->children() as $field)
+				{
+					$fields = array(
+						'label' =>			(string)$field->label,
+						'element_name' =>	(string)$field->label['element_name'],
+						'unique_hash' => 	(string)$field->unique_hash,
+						'type' =>			(string)$field->type,
+						'required' =>		(string)$field->required,
+						'sortorder' =>		(string)$field->sortorder,
+						'location' =>		(string)$field->location,
+						'show_column' =>	(string)$field->yes
+					);
+					// Append the configuration fields:
+					if(!empty($field->configuration))
+					{
+						foreach($field->configuration->children() as $child)
+						{
+							$fields[$child->getName()] = (string)$child;
+						}
+					}
+					$_data['fields'][] = $fields;
+				}
+			}*/
 			// merge the arrays:
 			foreach($settings as $key => $value)
 			{
@@ -207,7 +239,10 @@
 					$_data[$key] = $value;
 				} else {
 					// merge the fields:
+					foreach($settings['fields'] as $field)
+					{
 
+					}
 				}
 			}
 

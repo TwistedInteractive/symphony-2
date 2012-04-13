@@ -642,7 +642,7 @@
 
 				if($canProceed){
 					$meta['handle'] = Lang::createHandle($meta['name']);
-					$meta['fields'] = $fields;
+					// $meta['fields'] = $fields;
 
 					// If we are creating a new Section
 					if(!$edit) {
