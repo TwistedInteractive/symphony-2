@@ -63,22 +63,8 @@ class Lookup
 	 */
 	public function save($hash)
 	{
-		switch($this->_type)
-		{
-			case self::LOOKUP_PAGES :
-				{
-					Symphony::Database()->insert(array('hash'=>$hash), 'tbl_lookup_pages');
-                    return Symphony::Database()->getInsertID();
-					break;
-				}
-			case self::LOOKUP_SECTIONS :
-				{
-					Symphony::Database()->insert(array('hash'=>$hash), 'tbl_lookup_sections');
-                    return Symphony::Database()->getInsertID();
-					break;
-				}
-		}
-		return false;
+		Symphony::Database()->insert(array('hash'=>$hash), 'tbl_lookup_'.$this->_type);
+		return Symphony::Database()->getInsertID();
 	}
 
 	/**
@@ -90,32 +76,13 @@ class Lookup
 	 */
 	public function delete($idOrHash)
 	{
-		switch($this->_type)
+		if(is_numeric($idOrHash) && strlen($idOrHash) != 32)
 		{
-			case self::LOOKUP_PAGES :
-				{
-					if(is_numeric($idOrHash) && strlen($idOrHash) != 32)
-					{
-						// Assume it's an ID
-						Symphony::Database()->delete('tbl_lookup_pages', '`id` = '.$idOrHash);
-					} else {
-						// Assume it's a hash
-						Symphony::Database()->delete('tbl_lookup_pages', '`hash` = \''.$idOrHash.'\'');
-					}
-					break;
-				}
-			case self::LOOKUP_SECTIONS :
-				{
-					if(is_numeric($idOrHash) && strlen($idOrHash) != 32)
-					{
-						// Assume it's an ID
-						Symphony::Database()->delete('tbl_lookup_sections', '`id` = '.$idOrHash);
-					} else {
-						// Assume it's a hash
-						Symphony::Database()->delete('tbl_lookup_sections', '`hash` = \''.$idOrHash.'\'');
-					}
-					break;
-				}
+			// Assume it's an ID
+			Symphony::Database()->delete('tbl_lookup_'.$this->_type, '`id` = '.$idOrHash);
+		} else {
+			// Assume it's a hash
+			Symphony::Database()->delete('tbl_lookup_'.$this->_type, '`hash` = \''.$idOrHash.'\'');
 		}
 	}
 
@@ -132,21 +99,8 @@ class Lookup
 		$key = 'c_'.$hash;
 		if(!isset($this->_cache['hash'][$key]))
 		{
-			switch($this->_type)
-			{
-				case self::LOOKUP_PAGES :
-					{
-						$this->_cache['hash'][$key] = Symphony::Database()->fetchVar('id', 0,
-							sprintf('SELECT `id` FROM `tbl_lookup_pages` WHERE `hash` = \'%s\';', $hash));
-						break;
-					}
-				case self::LOOKUP_SECTIONS :
-					{
-						$this->_cache['hash'][$key] = Symphony::Database()->fetchVar('id', 0,
-							sprintf('SELECT `id` FROM `tbl_lookup_sections` WHERE `hash` = \'%s\';', $hash));
-						break;
-					}
-			}
+			$this->_cache['hash'][$key] = Symphony::Database()->fetchVar('id', 0,
+				sprintf('SELECT `id` FROM `tbl_lookup_%s` WHERE `hash` = \'%s\';', $this->_type, $hash));
 		}
 		return $this->_cache['hash'][$key];
 	}
@@ -162,21 +116,8 @@ class Lookup
 	{
 		if(!isset($this->_cache['id'][$id]))
 		{
-			switch($this->_type)
-			{
-				case self::LOOKUP_PAGES :
-					{
-						$this->_cache['id'][$id] = Symphony::Database()->fetchVar('hash', 0,
-							sprintf('SELECT `hash` FROM `tbl_lookup_pages` WHERE `id` = %d;', $id));
-						break;
-					}
-				case self::LOOKUP_SECTIONS :
-					{
-						$this->_cache['id'][$id] = Symphony::Database()->fetchVar('hash', 0,
-							sprintf('SELECT `hash` FROM `tbl_lookup_sections` WHERE `id` = %d;', $id));
-						break;
-					}
-			}
+			$this->_cache['id'][$id] = Symphony::Database()->fetchVar('hash', 0,
+				sprintf('SELECT `hash` FROM `tbl_lookup_%s` WHERE `id` = %d;', $this->_type, $id));
 		}
 		return $this->_cache['id'][$id];
 	}
@@ -188,20 +129,7 @@ class Lookup
      */
     public function getAllHashes()
     {
-		switch($this->_type)
-		{
-			case self::LOOKUP_PAGES :
-				{
-					return Symphony::Database()->fetchCol('hash', 'SELECT `hash` FROM `tbl_lookup_pages`;');
-					break;
-				}
-			case self::LOOKUP_SECTIONS :
-				{
-					return Symphony::Database()->fetchCol('hash', 'SELECT `hash` FROM `tbl_lookup_sections`;');
-					break;
-				}
-		}
-
+		return Symphony::Database()->fetchCol('hash', 'SELECT `hash` FROM `tbl_lookup_'.$this->_type.'`;');
     }
 
 }
