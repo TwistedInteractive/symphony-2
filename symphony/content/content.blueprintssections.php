@@ -21,7 +21,8 @@
 			$this->setTitle(__('%1$s &ndash; %2$s', array(__('Sections'), __('Symphony'))));
 			$this->appendSubheading(__('Sections'), Widget::Anchor(__('Create New'), Administration::instance()->getCurrentPageURL().'new/', __('Create a section'), 'create button', NULL, array('accesskey' => 'c')));
 
-			$sections = SectionManager::fetch(NULL, 'ASC', 'sortorder');
+			// $sections = SectionManager::fetch(NULL, 'ASC', 'sortorder');
+			$sections = SectionManager::fetchByXPath();
 
 			$aTableHead = array(
 				array(__('Name'), 'col'),
