@@ -150,7 +150,7 @@
 		{
 			if(!isset($fields['unique_hash']))
 			{
-				$fields['unique_hash'] = md5($fields['name'].time());
+				$fields['unique_hash'] = md5($fields['label'].time());
 			}
 
 			$configuration = '';
@@ -212,11 +212,15 @@
 			// Add the field:
 			self::index()->mergeXML($root[0], $fieldXML);
 
+			$sectionXML = self::index()->xpath(
+				sprintf('section[unique_hash=\'%s\']', $section_hash)
+			);
+
 			// Save the new section XML file:
 			$dom = new DOMDocument();
 			$dom->preserveWhiteSpace = false;
 			$dom->formatOutput = true;
-			$dom->loadXML(self::index()->getIndex()->saveXML());
+			$dom->loadXML($sectionXML[0]->saveXML());
 
 			// Save the XML:
 			General::writeFile(
@@ -246,7 +250,31 @@
 		 * @return boolean
 		 */
 		public static function edit($id, array $fields){
-			if(!Symphony::Database()->update($fields, "tbl_fields", " `id` = '$id'")) return false;
+			// if(!Symphony::Database()->update($fields, "tbl_fields", " `id` = '$id'")) return false;
+
+			$hash = self::lookup()->getHash($id);
+
+			// Edit the index:
+			foreach($fields as $key => $value)
+			{
+				if($key != 'handle')
+				{
+					self::index()->editValue(sprintf('section/fields/field[unique_hash=\'%s\']/%s', $hash, $key), $value);
+				} else {
+					self::index()->editAttribute(sprintf('section/fields/field[unique_hash=\'%s\']/name', $hash, $key), 'handle', $value);
+				}
+			}
+
+			// Parent section hash:
+			$section_hash = self::index()->xpath(
+				sprintf('section[fields/field/unique_hash=\'%s\']/unique_hash', $hash), true
+			);
+
+			// Save the new XML:
+			SectionManager::__saveXMLFile(
+				self::index()->xpath(sprintf('section[unique_hash=\'%s\']/name/@handle', $section_hash), true),
+				self::index()->getFormattedXML(sprintf('section[unique_hash=\'%s\']', $section_hash))
+			);
 
 			return true;
 		}
@@ -265,13 +293,182 @@
 			$existing = self::fetch($id);
 			$existing->tearDown();
 
-			Symphony::Database()->delete('tbl_fields', " `id` = '$id'");
-			Symphony::Database()->delete('tbl_fields_'.$existing->handle(), " `field_id` = '$id'");
+			// Symphony::Database()->delete('tbl_fields', " `id` = '$id'");
+			// Symphony::Database()->delete('tbl_fields_'.$existing->handle(), " `field_id` = '$id'");
+
+			$hash = self::lookup()->getHash($id);
+			// Parent section hash:
+			$section_hash = self::index()->xpath(
+				sprintf('section[fields/field/unique_hash=\'%s\']/unique_hash', $hash), true
+			);
+
+			// Remove field node from index:
+			self::index()->removeNode(sprintf('section/fields/field[unique_hash=\'%s\']', $hash));
+
+			// Save the new XML:
+			SectionManager::__saveXMLFile(
+				self::index()->xpath(sprintf('section[unique_hash=\'%s\']/name/@handle', $section_hash), true),
+				self::index()->getFormattedXML(sprintf('section[unique_hash=\'%s\']', $section_hash))
+			);
+
+			// Remove associations:
 			SectionManager::removeSectionAssociation($id);
 
+			// Remove entry data:
 			Symphony::Database()->query('DROP TABLE `tbl_entries_data_'.$id.'`');
 
 			return true;
+		}
+
+		/**
+		 * @static
+		 * @param string $xpath
+		 *  A XPath expression to filter fields out of the Sections Index.
+		 * @param string $order_by (optional)
+		 *  Allows a developer to return the fields in a particular order. If omitted
+		 *  this will return fields ordered by `sortorder`.
+		 * @param string $order_direction (optional)
+		 *  The direction to order (`asc` or `desc`)
+		 *  Defaults to `asc`
+		 * @return array
+		 *  An array of Field objects. If no Field are found, null is returned.
+		 */
+		public static function fetchByXPath($xpath = 'section/fields/field', $order_by = 'sortorder', $order_direction = 'asc') {
+			$fieldNodes = self::index()->fetch($xpath, $order_by, $order_direction);
+
+			$fields = array();
+			$returnSingle = false;
+
+			if($xpath == 'section/fields/field') {
+				$returnSingle = true;
+			}
+
+			// Loop over the `$fieldNodes` and check to see we have
+			// instances of the request fields
+			foreach($fieldNodes as $fieldNode) {
+				$key = 'f_'.(string)$fieldNode->unique_hash;
+				if(
+					isset(self::$_initialiased_fields[$key])
+					&& self::$_initialiased_fields[$key] instanceof Field
+				) {
+					// Use cached object:
+					$fields[self::lookup()->getId((string)$fieldNode->unique_hash)] = self::$_initialiased_fields[$key];
+				} else {
+					// Create new Field object:
+					$field = self::create((string)$fieldNode->type);
+					$data  = array();
+
+					foreach($fieldNode->children() as $node)
+					{
+						$data[$node->getName()] = (string)$node[0];
+						if($node->getName() == 'label')
+						{
+							$data['element_name'] = (string)$node['element_name'];
+						}
+					}
+					$data['parent_section'] = self::index()->xpath(
+						sprintf('section[fields/field/unique_hash=\'%s\']/unique_hash',
+							(string)$fieldNode->unique_hash), true);
+					$data['id'] = self::lookup()->getId((string)$fieldNode->unique_hash);
+
+					$field->setArray($data);
+
+/*					$field->setArray(array(
+						'label'				=> (string)$fieldNode->label,
+						'element_name'		=> (string)$fieldNode->label['element_name'],
+						'type'				=> (string)$fieldNode->type,
+						'parent_section'	=> self::index()->xpath(
+							sprintf('section[fields/field/unique_hash=\'%s\']/unique_hash',
+								(string)$fieldNode->unique_hash), true),
+						'required'			=> (string)$fieldNode->required,
+						'sortorder'			=> (string)$fieldNode->sortorder,
+						'location'			=> (string)$fieldNode->location,
+						'show_column'		=> (string)$fieldNode->show_column
+					));*/
+
+					// Get the context for this field from our previous queries.
+/*					$context = $field_contexts[$f['type']][$f['id']];
+
+					if (is_array($context) && !empty($context)) {
+						try {
+							unset($context['id']);
+							$field->setArray($context);
+						}
+
+						catch (Exception $e) {
+							throw new Exception(__(
+								'Settings for field %s could not be found in table tbl_fields_%s.',
+								array($f['id'], $f['type'])
+							));
+						}
+					}*/
+
+					self::$_initialiased_fields[$key] = $field;
+					$fields[self::lookup()->getId((string)$fieldNode->unique_hash)] = self::$_initialiased_fields[$key];
+
+					// Loop over the resultset building an array of type, field_id
+/*					foreach($result as $f) {
+						$ids[$f['type']][] = $f['id'];
+					}
+
+					// Loop over the `ids` array, which is grouped by field type
+					// and get the field context.
+					foreach($ids as $type => $field_id) {
+						$field_contexts[$type] = Symphony::Database()->fetch(sprintf(
+							"SELECT * FROM `tbl_fields_%s` WHERE `field_id` IN (%s)",
+							$type, implode(',', $field_id)
+						), 'field_id');
+					}
+
+					foreach($result as $f) {
+						// We already have this field in our static store
+						if(
+							isset(self::$_initialiased_fields[$f['id']])
+							&& self::$_initialiased_fields[$f['id']] instanceof Field
+						) {
+							$field = self::$_initialiased_fields[$f['id']];
+						}
+						// We don't have an instance of this field, so let's set one up
+						else {
+							$field = self::create($f['type']);
+							$field->setArray($f);
+
+							// Get the context for this field from our previous queries.
+							$context = $field_contexts[$f['type']][$f['id']];
+
+							if (is_array($context) && !empty($context)) {
+								try {
+									unset($context['id']);
+									$field->setArray($context);
+								}
+
+								catch (Exception $e) {
+									throw new Exception(__(
+										'Settings for field %s could not be found in table tbl_fields_%s.',
+										array($f['id'], $f['type'])
+									));
+								}
+							}
+
+							self::$_initialiased_fields[$f['id']] = $field;
+						}
+
+						// Check to see if there was any restricts imposed on the fields
+						if (
+							$restrict == Field::__FIELD_ALL__
+							|| ($restrict == Field::__TOGGLEABLE_ONLY__ && $field->canToggle())
+							|| ($restrict == Field::__UNTOGGLEABLE_ONLY__ && !$field->canToggle())
+							|| ($restrict == Field::__FILTERABLE_ONLY__ && $field->canFilter())
+							|| ($restrict == Field::__UNFILTERABLE_ONLY__ && !$field->canFilter())
+						) {
+							$fields[$f['id']] = $field;
+						}
+					}
+*/
+				}
+			}
+
+			return count($fields) <= 1 && $returnSingle ? current($fields) : $fields;
 		}
 
 		/**
@@ -279,6 +476,8 @@
 		 * use of this function is to retrieve a Field by ID, but it can be used to retrieve
 		 * Fields from a Section also. There are several parameters that can be used to fetch
 		 * fields by their Type, Location, by a Field Constant or with a custom WHERE query.
+		 *
+		 * @deprecated since 2.4
 		 *
 		 * @param integer|array $id
 		 *  The ID of the field to retrieve. Defaults to null which will return multiple field
@@ -308,7 +507,7 @@
 		 *  An array of Field objects. If no Field are found, null is returned.
 		 */
 		public static function fetch($id = null, $section_id = null, $order = 'ASC', $sortfield = 'sortorder', $type = null, $location = null, $where = null, $restrict=Field::__FIELD_ALL__){
-			$fields = array();
+/*			$fields = array();
 			$returnSingle = false;
 			$ids = array();
 			$field_contexts = array();
@@ -336,12 +535,12 @@
 						unset($field_ids[$key]);
 					}
 				}
-			}
+			}*/
 
 			// If there is any `$field_ids` left to be resolved lets do that, otherwise
 			// if `$id` wasn't provided in the first place, we'll also continue
-			if(!empty($field_ids) || is_null($id)) {
-				$sql = sprintf("
+//			if(!empty($field_ids) || is_null($id)) {
+/*				$sql = sprintf("
 						SELECT t1.*
 						FROM tbl_fields AS `t1`
 						WHERE 1
@@ -353,11 +552,49 @@
 					isset($section_id) ? " AND t1.`parent_section` = '{$section_id}' " : NULL,
 					$where,
 					isset($field_ids) ? " AND t1.`id` IN(" . implode(',', $field_ids) . ") " : " ORDER BY t1.`{$sortfield}` {$order}"
+				);*/
+
+				// Create the XPath expression:
+				$xpath = 'section';
+				if(!empty($section_id)) {
+					$xpath .= sprintf('[unique_hash=\'%s\']', SectionManager::lookup()->getHash($section_id));
+				}
+				$xpath.= '/fields/field';
+				$expressions = array();
+				if(!empty($type)) {
+					$expressions[] = sprintf('type=\'%s\'', $type);
+				}
+				if(!empty($location)) {
+					$expressions[] = sprintf('location=\'%s\'', $location);
+				}
+				if(!empty($field_ids)) {
+					$fieldexpressions = array();
+					foreach($field_ids as $field_id)
+					{
+						$fieldexpressions[] = sprintf('unique_hash=\'%s\'', self::lookup()->getHash($field_id));
+					}
+					$expressions[] = '('.implode(' or ', $fieldexpressions).')';
+				}
+				// Todo: Backward compatibility for $where-parameter
+
+				if(!empty($expressions))
+				{
+					$xpath .= '['.implode(' and ', $expressions).']';
+				}
+
+				$fields = self::fetchByXPath($xpath,
+					trim(strtolower($sortfield)),
+					trim(strtolower($order))
 				);
 
-				if(!$result = Symphony::Database()->fetch($sql)) return ($returnSingle ? null : array());
 
-				// Loop over the resultset building an array of type, field_id
+				return $fields;
+
+				// return self::fetchByXPath($xpath);
+
+				// if(!$result = Symphony::Database()->fetch($sql)) return ($returnSingle ? null : array());
+
+/*				// Loop over the resultset building an array of type, field_id
 				foreach($result as $f) {
 					$ids[$f['type']][] = $f['id'];
 				}
@@ -417,7 +654,7 @@
 				}
 			}
 
-			return count($fields) <= 1 && $returnSingle ? current($fields) : $fields;
+			return count($fields) <= 1 && $returnSingle ? current($fields) : $fields;*/
 		}
 
 		/**
@@ -427,7 +664,10 @@
 		 * @return string
 		 */
 		public static function fetchFieldTypeFromID($id){
-			return Symphony::Database()->fetchVar('type', 0, "SELECT `type` FROM `tbl_fields` WHERE `id` = '$id' LIMIT 1");
+			$hash = self::lookup()->getHash($id);
+			return self::index()->xpath(sprintf('sections/fields/field[unique_hash=\'%s\']/type', $hash), true);
+
+			// return Symphony::Database()->fetchVar('type', 0, "SELECT `type` FROM `tbl_fields` WHERE `id` = '$id' LIMIT 1");
 		}
 
 		/**
@@ -437,7 +677,10 @@
 		 * @return string
 		 */
 		public static function fetchHandleFromID($id){
-			return Symphony::Database()->fetchVar('element_name', 0, "SELECT `element_name` FROM `tbl_fields` WHERE `id` = '$id' LIMIT 1");
+			$hash = self::lookup()->getHash($id);
+			return self::index()->xpath(sprintf('sections/fields/field[unique_hash=\'%s\']/name/@element_name', $hash), true);
+
+			// return Symphony::Database()->fetchVar('element_name', 0, "SELECT `element_name` FROM `tbl_fields` WHERE `id` = '$id' LIMIT 1");
 		}
 
 		/**

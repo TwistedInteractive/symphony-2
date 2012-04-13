@@ -162,17 +162,28 @@
 			));
 
 			// Save the XML:
-			General::writeFile(
-				WORKSPACE.'/sections/'.General::createHandle($fields['name']).'.xml',
-				$dom->saveXML(),
-				Symphony::Configuration()->get('write_mode', 'file')
-			);
+			self::__saveXMLFile(General::createHandle($fields['name']), $dom->saveXML());
 
 			// Re-index:
 			// Todo: optimize the code with a save-function at the end?
 			self::index()->reIndex();
 
 			return $fields['unique_hash'];
+		}
+
+		/**
+		 * Save a section XML file
+		 *
+		 * @param $handle
+		 *  The handle of the section
+		 * @param $xml
+		 *  The XML data
+		 */
+		public static function __saveXMLFile($handle, $xml)
+		{
+			General::writeFile(WORKSPACE.'/sections/'.$handle.'.xml', $xml,
+				Symphony::Configuration()->get('write_mode', 'file')
+			);
 		}
 
 		/**
@@ -190,20 +201,41 @@
 		 */
 		public static function edit($section_id, array $settings){
 
-			// Todo: load the section and merge the settings before saving it (just like pages)
-			$hash 	 = self::lookup()->getHash($section_id);
+			$hash = self::lookup()->getHash($section_id);
+
+			$old_handle = self::index()->xpath(sprintf('section[unique_hash=\'%s\']/name/@handle', $hash), true);
+
+			// Edit the index:
+			foreach($settings as $key => $value)
+			{
+				if($key != 'handle')
+				{
+					self::index()->editValue(sprintf('section[unique_hash=\'%s\']/%s', $hash, $key), $value);
+				} else {
+					self::index()->editAttribute(sprintf('section[unique_hash=\'%s\']/name', $hash, $key), 'handle', $value);
+				}
+			}
+
+			// Delete the old XML:
+			General::deleteFile(WORKSPACE.'/sections/'.$old_handle.'.xml');
+
+			// Save the new XML:
+			self::__saveXMLFile(
+				self::index()->xpath(sprintf('section[unique_hash=\'%s\']/name/@handle', $hash), true),
+				self::index()->getFormattedXML(sprintf('section[unique_hash=\'%s\']', $hash))
+			);
+
 			// $section = self::fetchByXPath(sprintf('section[unique_hash=\'%s\']', $hash));
-			$section = self::index()->xpath(sprintf('section[unique_hash=\'%s\']', $hash));
-			$section = $section[0];
+/*			$section = self::index()->xpath(sprintf('section[unique_hash=\'%s\']', $hash));
+			$section = $section[0];*/
 
 			// Load the section data:
-			$_data = array(
+/*			$_data = array(
 				'name' => 				(string)$section->name,
 				'sortorder' => 			(string)$section->sortorder,
 				'navigation_group' =>	(string)$section->navigation_group,
-				'hidden' =>				(string)$section->hidden,
-				'fields' =>				array()
-			);
+				'hidden' =>				(string)$section->hidden
+			);*/
 
 			// Load the fields:
 /*			if(!empty($section->fields))
@@ -232,28 +264,14 @@
 				}
 			}*/
 			// merge the arrays:
-			foreach($settings as $key => $value)
+/*			foreach($settings as $key => $value)
 			{
-				if($key != 'fields')
-				{
-					$_data[$key] = $value;
-				} else {
-					// merge the fields:
-					foreach($settings['fields'] as $field)
-					{
-
-					}
-				}
-			}
-
-			print_r($_data);
-			die();
-
-			// Todo: Delete the old file, prior to saving the new file
+				$_data[$key] = $value;
+			}*/
 
 
+			// self::__generateSectionXML($settings);
 
-			self::__generateSectionXML($settings);
 /*			unset($settings['fields']);
 			if(!Symphony::Database()->update($settings, 'tbl_sections', " `id` = $section_id")) return false;*/
 
@@ -337,7 +355,7 @@
 		 *  A XPath expression to filter sections out of the Sections Index.
 		 * @param string $order_by (optional)
 		 *  Allows a developer to return the Sections in a particular order. If omitted
-		 *  this will return pages ordered by `sortorder`.
+		 *  this will return sections ordered by `sortorder`.
 		 * @param string $order_direction (optional)
 		 *  The direction to order (`asc` or `desc`)
 		 *  Defaults to `asc`
