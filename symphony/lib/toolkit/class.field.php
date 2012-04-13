@@ -441,6 +441,8 @@
 			// Create content
 			$wrapper->appendChild(Widget::Input('fields['.$this->get('sortorder').'][type]', $this->handle(), 'hidden'));
 			if($this->get('id')) $wrapper->appendChild(Widget::Input('fields['.$this->get('sortorder').'][id]', $this->get('id'), 'hidden'));
+			if($this->get('unique_hash')) $wrapper->appendChild(Widget::Input('fields['.$this->get('sortorder').'][unique_hash]',
+				$this->get('unique_hash'), 'hidden'));
 
 			$wrapper->appendChild($this->buildSummaryBlock($errors));
 		}
