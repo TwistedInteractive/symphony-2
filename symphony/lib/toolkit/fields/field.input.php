@@ -294,4 +294,9 @@
 			return $groups;
 		}
 
+		public function getConfiguration()
+		{
+			return array('validator');
+		}
+
 	}

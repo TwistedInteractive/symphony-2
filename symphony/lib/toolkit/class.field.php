@@ -1276,4 +1276,15 @@
 		public function buildDSRetrivalSQL($data, &$joins, &$where, $andOperation = false) {
 			return $this->buildDSRetrievalSQL($data, $joins, $where, $andOperation);
 		}
+
+		/**
+		 * Returns the element names of the configuration
+		 *
+		 * @return array
+		 *  An array with the element names of the configuration
+		 */
+		public function getConfiguration()
+		{
+			return array();
+		}
 	}
