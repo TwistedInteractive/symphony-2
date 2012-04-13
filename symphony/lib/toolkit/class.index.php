@@ -276,11 +276,13 @@ class Index
 	}
 
 	/**
+	 * Merge SimpleXMLObjects
+	 *
 	 * @param $xml_element	SimpleXMLElement
 	 * @param $append		SimpleXMLElement
 	 * @return void
 	 */
-	private function mergeXML($xml_element, $append)
+	public function mergeXML($xml_element, $append)
     {
         if ($append) {
             if (strlen(trim((string) $append))==0) {
@@ -297,4 +299,13 @@ class Index
         }
     }
 
+	/**
+	 * Return the raw index
+	 *
+	 * @return SimpleXMLElement
+	 */
+	public function getIndex()
+	{
+		return $this->_index;
+	}
 }
