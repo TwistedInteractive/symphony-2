@@ -312,6 +312,7 @@ class Index
 
 	/**
 	 * Edit the value of a node in the index (note: this does not save the index to a new file)
+	 * If the node doesn't exists, it will be created
 	 *
 	 * @param $xpath
 	 *  The XPath to the node to edit
@@ -321,8 +322,14 @@ class Index
 	public function editValue($xpath, $value)
 	{
 		$node = $this->xpath($xpath);
-		$node = $node[0];
-		$node[0] = $value;
+		if(count($node) == 0)
+		{
+			// Todo: Node doesn't exist, create a new node:
+			
+		} else {
+			$node = $node[0];
+			$node[0] = $value;
+		}
 	}
 
 	/**
