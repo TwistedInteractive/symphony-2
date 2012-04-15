@@ -383,7 +383,7 @@
 		 * @return array
 		 *  An array of Field objects. If no Field are found, null is returned.
 		 */
-		public static function fetchByXPath($xpath = 'section/fields/field', $order_by = 'sortorder', $order_direction = 'asc') {
+		public static function fetchByXPath($xpath = 'section/fields/field', $order_by = 'sortorder', $order_direction = 'asc', $restrict=Field::__FIELD_ALL__) {
 			$fieldNodes = self::index()->fetch($xpath, $order_by, $order_direction);
 
 			$fields = array();
@@ -454,7 +454,19 @@
 					}*/
 
 					self::$_initialiased_fields[$key] = $field;
-					$fields[self::lookup()->getId((string)$fieldNode->unique_hash)] = self::$_initialiased_fields[$key];
+
+					// Check to see if there was any restricts imposed on the fields
+					if (
+						$restrict == Field::__FIELD_ALL__
+						|| ($restrict == Field::__TOGGLEABLE_ONLY__ && $field->canToggle())
+						|| ($restrict == Field::__UNTOGGLEABLE_ONLY__ && !$field->canToggle())
+						|| ($restrict == Field::__FILTERABLE_ONLY__ && $field->canFilter())
+						|| ($restrict == Field::__UNFILTERABLE_ONLY__ && !$field->canFilter())
+					) {
+						$fields[self::lookup()->getId((string)$fieldNode->unique_hash)] = self::$_initialiased_fields[$key];
+					}
+
+
 
 					// Loop over the resultset building an array of type, field_id
 /*					foreach($result as $f) {
@@ -518,6 +530,7 @@
 				}
 			}
 
+
 			return count($fields) <= 1 && $returnSingle ? current($fields) : $fields;
 		}
 
@@ -557,6 +570,17 @@
 		 *  An array of Field objects. If no Field are found, null is returned.
 		 */
 		public static function fetch($id = null, $section_id = null, $order = 'ASC', $sortfield = 'sortorder', $type = null, $location = null, $where = null, $restrict=Field::__FIELD_ALL__){
+			if(!is_null($id)) {
+				if(!is_array($id)) {
+					$field_ids = array((int)$id);
+				}
+				else {
+					$field_ids = $id;
+				}
+			} else {
+				$field_ids = array();
+			}
+
 /*			$fields = array();
 			$returnSingle = false;
 			$ids = array();
@@ -634,11 +658,17 @@
 
 				$fields = self::fetchByXPath($xpath,
 					trim(strtolower($sortfield)),
-					trim(strtolower($order))
+					trim(strtolower($order)),
+					$restrict
 				);
 
+				// For backward compatibility (return single):
+				if(!is_null($id) && is_numeric($id) && is_array($fields) && count($fields) == 1) {
+					return current($fields);
+				} else {
+					return $fields;
+				}
 
-				return $fields;
 
 				// return self::fetchByXPath($xpath);
 
@@ -755,14 +785,18 @@
 		 */
 		public static function fetchFieldIDFromElementName($element_name, $section_id = null){
 			if(is_null($element_name)) {
-				$schema_sql = sprintf("
+
+				$xpath = sprintf('section[unique_hash=\'%s\']/fields/field',
+					SectionManager::lookup()->getHash($section_id));
+
+/*				$schema_sql = sprintf("
 						SELECT `id`
 						FROM `tbl_fields`
 						WHERE `parent_section` = %d
 						ORDER BY `sortorder` ASC
 					",
 					$section_id
-				);
+				);*/
 			}
 
 			else {
@@ -780,10 +814,11 @@
 					// from `system:pagination`, `system:id` etc.
 					if($parts[0] == 'system') continue;
 
-					$element_names[] = Symphony::Database()->cleanValue(trim($parts[0]));
+					// $element_names[] = Symphony::Database()->cleanValue(trim($parts[0]));
+					$element_names[] = $parts[0];
 				}
 
-				$schema_sql = empty($element_names) ? null : sprintf("
+/*				$schema_sql = empty($element_names) ? null : sprintf("
 						SELECT `id`
 						FROM `tbl_fields`
 						WHERE 1
@@ -793,22 +828,39 @@
 					",
 					!is_null($section_id) ? sprintf("AND `parent_section` = %d", $section_id) : "",
 					implode("', '", array_unique($element_names))
-				);
+				);*/
+
+				if(empty($element_names))
+				{
+					return false;
+				} else {
+					$xpath = 'section';
+					if(!is_null($section_id))
+					{
+						$xpath .= '[unique_hash=\''.SectionManager::lookup()->getHash($section_id).'\']';
+					}
+					$xpath .= '/fields/field[unique_hash=\''.implode(
+						'\' or unique_hash=\'', $element_names).'\']';
+				}
 			}
 
-			if(is_null($schema_sql)) return false;
+			// if(is_null($schema_sql)) return false;
 
-			$result = Symphony::Database()->fetch($schema_sql);
+			// $result = Symphony::Database()->fetch($schema_sql);
+			$result = self::index()->xpath($xpath);
+
+			// Todo: sorting?
 
 			if(count($result) == 1) {
-				return (int)$result[0]['id'];
+				return (int)self::lookup()->getId((string)$result[0]->unique_hash);
 			}
 			else if(empty($result)) {
 				return false;
 			}
 			else {
 				foreach($result as &$r) {
-					$r = (int)$r['id'];
+					// $r = (int)$r['id'];
+					$r = (int)self::lookup()->getId((string)$r->unique_hash);
 				}
 
 				return $result;
@@ -846,14 +898,33 @@
 		 * `type` and `location`
 		 */
 		public static function fetchFieldsSchema($section_id) {
-			return Symphony::Database()->fetch(sprintf("
+			$fields = self::index()->xpath(
+				sprintf('section[unique_hash=\'%s\']/fields/field', (string)SectionManager::lookup()->getHash($section_id))
+			);
+
+			$schema = array();
+
+			foreach($fields as $field)
+			{
+				$schema[] = array(
+					'id' 			=> self::lookup()->getId((string)$field->unique_hash),
+					'element_name'	=> (string)$field->name['element_name'],
+					'type' 			=> (string)$field->type,
+					'location'		=> (string)$field->location
+				);
+				// Todo: sortorder?
+			}
+
+			return $schema;
+
+/*			return Symphony::Database()->fetch(sprintf("
 					SELECT `id`, `element_name`, `type`, `location`
 					FROM `tbl_fields`
 					WHERE `parent_section` = %d
 					ORDER BY `sortorder` ASC
 				",
 				$section_id
-			));
+			));*/
 		}
 
 		/**
@@ -932,10 +1003,14 @@
 		 * @return boolean
 		 */
 		public static function isFieldUsed($field_type) {
-			return Symphony::Database()->fetchVar('count', 0, sprintf("
+			return count(self::index()->xpath(
+				sprintf('sections/fields/field[type=\'%s\']', $field_type)
+			)) > 0;
+
+/*			return Symphony::Database()->fetchVar('count', 0, sprintf("
 				SELECT COUNT(*) AS `count` FROM `tbl_fields` WHERE `type` = '%s'
 				", $field_type
-			)) > 0;
+			)) > 0;*/
 		}
 
 		/**
@@ -948,7 +1023,13 @@
 		 *  true if used, false if not
 		 */
 		public static function isTextFormatterUsed($text_formatter_handle) {
-			$fields = Symphony::Database()->fetchCol('type', "SELECT DISTINCT `type` FROM `tbl_fields` WHERE `type` NOT IN ('author', 'checkbox', 'date', 'input', 'select', 'taglist', 'upload')");
+			// Assumes the name of the key is 'formatter':
+			return count(self::index()->xpath(
+				sprintf('sections/fields/field[formatter=\'%s\']', $text_formatter_handle)
+			)) > 0;
+
+
+/*			$fields = Symphony::Database()->fetchCol('type', "SELECT DISTINCT `type` FROM `tbl_fields` WHERE `type` NOT IN ('author', 'checkbox', 'date', 'input', 'select', 'taglist', 'upload')");
 			if(!empty($fields)) foreach($fields as $field) {
 				try {
 					$table = Symphony::Database()->fetchVar('count', 0, sprintf("
@@ -969,7 +1050,7 @@
 				}
 			}
 
-			return false;
+			return false;*/
 		}
 
 		/**
@@ -983,7 +1064,24 @@
 		 */
 		public static function fetchRemovedFieldsFromSection($section_id, $id_list)
 		{
-			return Symphony::Database()->fetchCol('id', "SELECT `id` FROM `tbl_fields` WHERE `parent_section` = '$section_id' AND `id` NOT IN ('".@implode("', '", $id_list)."')");
+			$xpath = sprintf('section[unique_hash=\'%s\']', SectionManager::lookup()->getHash($section_id));
+			$xpath.= '/fields/field';
+			if(!empty($id_list))
+			{
+				$xpath .= '[unique_hash!=\''.implode(
+						'\' and unique_hash!=\'', $id_list).'\']';
+			}
+			$fields = self::index()->xpath($xpath);
+			$ids    = array();
+
+			foreach($fields as $field)
+			{
+				$ids[] = self::lookup()->getId((string)$field->unique_hash);
+			}
+
+			return $ids;
+
+			// return Symphony::Database()->fetchCol('id', "SELECT `id` FROM `tbl_fields` WHERE `parent_section` = '$section_id' AND `id` NOT IN ('".@implode("', '", $id_list)."')");
 		}
 
 		/**
