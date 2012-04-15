@@ -1285,8 +1285,9 @@
 		 * @return array
 		 *  An array with the element names of the configuration
 		 */
-		public function getConfiguration()
+/*		public function getConfiguration()
 		{
 			return array();
-		}
+		}*/
+
 	}

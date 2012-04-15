@@ -155,7 +155,7 @@
 
 			$configuration = '';
 			// Get the available configuration fields from the field itself:
-			$configuration_fields = FieldManager::create($fields['type'])->getConfiguration();
+/*			$configuration_fields = FieldManager::create($fields['type'])->getConfiguration();
 			if(!empty($configuration_fields))
 			{
 				foreach($configuration_fields as $configuration_field)
@@ -165,7 +165,7 @@
 						$configuration .= '<'.$configuration_field.'>'.$fields[$configuration_field].'</'.$configuration_field.'>';
 					}
 				}
-			}
+			}*/
 
 			// Generate the field XML:
 			$field_str = sprintf(
@@ -265,6 +265,57 @@
 				}
 			}
 
+			self::__saveField($hash);
+
+			return true;
+		}
+
+		/**
+		 * Add some custom options to the field
+		 *
+		 * @param $id
+		 *  The ID of the field
+		 * @param $data
+		 *  An associated array with options
+		 * @return bool
+		 *  true on success, false on failure
+		 */
+		public static function addOptions($id, $data)
+		{
+			$hash = self::lookup()->getHash($id);
+			$nodes = self::index()->xpath(sprintf('section/fields/field[unique_hash=\'%s\']', $hash));
+			if(count($nodes) == 1)
+			{
+				$node = $nodes[0];
+				// Field found, now add or edit the options:
+				foreach($data as $key => $value)
+				{
+					$match = $node->xpath($key);
+					if(!empty($match))
+					{
+						// Edit the node:
+						self::index()->editValue(sprintf('section/fields/field[unique_hash=\'%s\']/%s', $hash, $key), $value);
+					} else {
+						// Add the node:
+						$node->addChild($key, $value);
+					}
+				}
+			}
+			
+			self::__saveField($hash);
+
+			return true;
+		}
+
+		/**
+		 * Save the field to the section XML file, according to it's hash
+		 *
+		 * @param $hash
+		 *  The hash of the field
+		 * @return void
+		 */
+		private static function __saveField($hash)
+		{
 			// Parent section hash:
 			$section_hash = self::index()->xpath(
 				sprintf('section[fields/field/unique_hash=\'%s\']/unique_hash', $hash), true
@@ -275,8 +326,6 @@
 				self::index()->xpath(sprintf('section[unique_hash=\'%s\']/name/@handle', $section_hash), true),
 				self::index()->getFormattedXML(sprintf('section[unique_hash=\'%s\']', $section_hash))
 			);
-
-			return true;
 		}
 
 		/**
@@ -297,7 +346,8 @@
 			// Symphony::Database()->delete('tbl_fields_'.$existing->handle(), " `field_id` = '$id'");
 
 			$hash = self::lookup()->getHash($id);
-			// Parent section hash:
+			// Parent section hash, this needs to get retrieved before we remove the field.
+			// That's also the reason why we won't use the __saveField()-function here:
 			$section_hash = self::index()->xpath(
 				sprintf('section[fields/field/unique_hash=\'%s\']/unique_hash', $hash), true
 			);
