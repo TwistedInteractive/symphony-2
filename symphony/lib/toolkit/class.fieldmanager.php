@@ -420,6 +420,8 @@
 						sprintf('section[fields/field/unique_hash=\'%s\']/unique_hash',
 							(string)$fieldNode->unique_hash), true);
 					$data['id'] = self::lookup()->getId((string)$fieldNode->unique_hash);
+					// For backward compatibility (since field_id was added when reading tbl_fields_[xxx]):
+					$data['field_id'] = $data['id'];
 
 					$field->setArray($data);
 
@@ -908,7 +910,7 @@
 			{
 				$schema[] = array(
 					'id' 			=> self::lookup()->getId((string)$field->unique_hash),
-					'element_name'	=> (string)$field->name['element_name'],
+					'element_name'	=> (string)$field->label['element_name'],
 					'type' 			=> (string)$field->type,
 					'location'		=> (string)$field->location
 				);
