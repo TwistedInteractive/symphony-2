@@ -36,8 +36,6 @@
 			'user' => null,
 			'password' => null,
 			'db' => null,
-			'character_set' => 'utf8',
-			'character_encoding' => 'utf8',
 			'tbl_prefix' => 'sym_',
 		),
 		########
@@ -75,8 +73,7 @@
 		'region' => array(
 			'time_format' => 'g:i a',
 			'date_format' => 'm/d/Y',
-			'datetime_separator' => ' ',
-			'timezone' => 'GMT',
+			'datetime_separator' => ' '
 		),
 		########
 
