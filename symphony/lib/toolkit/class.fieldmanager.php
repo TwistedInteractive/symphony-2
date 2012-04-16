@@ -257,11 +257,11 @@
 			// Edit the index:
 			foreach($fields as $key => $value)
 			{
-				if($key != 'handle')
+				if($key != 'element_name')
 				{
 					self::index()->editValue(sprintf('section/fields/field[unique_hash=\'%s\']/%s', $hash, $key), $value);
 				} else {
-					self::index()->editAttribute(sprintf('section/fields/field[unique_hash=\'%s\']/label', $hash, $key), 'handle', $value);
+					self::index()->editAttribute(sprintf('section/fields/field[unique_hash=\'%s\']/label', $hash), 'element_name', $value);
 				}
 			}
 
