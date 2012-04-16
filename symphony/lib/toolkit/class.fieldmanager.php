@@ -265,7 +265,7 @@
 				}
 			}
 
-			self::__saveField($hash);
+			self::saveField($id);
 
 			return true;
 		}
@@ -302,7 +302,7 @@
 				}
 			}
 			
-			self::__saveField($hash);
+			self::saveField($id);
 
 			return true;
 		}
@@ -310,12 +310,14 @@
 		/**
 		 * Save the field to the section XML file, according to it's hash
 		 *
-		 * @param $hash
-		 *  The hash of the field
+		 * @param $id
+		 *  The id of the field
 		 * @return void
 		 */
-		private static function __saveField($hash)
+		public static function saveField($id)
 		{
+			$hash = self::lookup()->getHash($id);
+
 			// Parent section hash:
 			$section_hash = self::index()->xpath(
 				sprintf('section[fields/field/unique_hash=\'%s\']/unique_hash', $hash), true
@@ -347,7 +349,7 @@
 
 			$hash = self::lookup()->getHash($id);
 			// Parent section hash, this needs to get retrieved before we remove the field.
-			// That's also the reason why we won't use the __saveField()-function here:
+			// That's also the reason why we can't use the saveField()-function here:
 			$section_hash = self::index()->xpath(
 				sprintf('section[fields/field/unique_hash=\'%s\']/unique_hash', $hash), true
 			);
