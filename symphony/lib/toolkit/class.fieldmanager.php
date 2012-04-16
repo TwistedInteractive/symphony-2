@@ -170,7 +170,8 @@
 			// Generate the field XML:
 			$field_str = sprintf(
 				'<field>
-					<label element_name="%1$s">%2$s</label>
+					<label>%2$s</label>
+					<element_name>%1$s</element_name>
 					<unique_hash>%3$s</unique_hash>
 					<type>%4$s</type>
 					<required>%5$s</required>
@@ -252,7 +253,7 @@
 		public static function edit($id, array $fields){
 			// if(!Symphony::Database()->update($fields, "tbl_fields", " `id` = '$id'")) return false;
 
-			$hash = self::lookup()->getHash($id);
+/*			$hash = self::lookup()->getHash($id);
 
 			// Edit the index:
 			foreach($fields as $key => $value)
@@ -265,9 +266,9 @@
 				}
 			}
 
-			self::saveField($id);
+			self::saveField($id);*/
 
-			return true;
+			return self::saveOptions($id, $fields);
 		}
 
 		/**
@@ -416,10 +417,10 @@
 					foreach($fieldNode->children() as $node)
 					{
 						$data[$node->getName()] = (string)$node[0];
-						if($node->getName() == 'label')
+/*						if($node->getName() == 'label')
 						{
 							$data['element_name'] = (string)$node['element_name'];
-						}
+						}*/
 					}
 					$data['parent_section'] = self::index()->xpath(
 						sprintf('section[fields/field/unique_hash=\'%s\']/unique_hash',
@@ -765,7 +766,7 @@
 		 */
 		public static function fetchHandleFromID($id){
 			$hash = self::lookup()->getHash($id);
-			return self::index()->xpath(sprintf('sections/fields/field[unique_hash=\'%s\']/name/@element_name', $hash), true);
+			return self::index()->xpath(sprintf('sections/fields/field[unique_hash=\'%s\']/element_name', $hash), true);
 
 			// return Symphony::Database()->fetchVar('element_name', 0, "SELECT `element_name` FROM `tbl_fields` WHERE `id` = '$id' LIMIT 1");
 		}
@@ -846,8 +847,8 @@
 					{
 						$xpath .= '[unique_hash=\''.SectionManager::lookup()->getHash($section_id).'\']';
 					}
-					$xpath .= '/fields/field[unique_hash=\''.implode(
-						'\' or unique_hash=\'', $element_names).'\']';
+					$xpath .= '/fields/field[element_name=\''.implode(
+						'\' or element_name=\'', $element_names).'\']';
 				}
 			}
 
@@ -915,7 +916,7 @@
 			{
 				$schema[] = array(
 					'id' 			=> self::lookup()->getId((string)$field->unique_hash),
-					'element_name'	=> (string)$field->label['element_name'],
+					'element_name'	=> (string)$field->element_name,
 					'type' 			=> (string)$field->type,
 					'location'		=> (string)$field->location
 				);
