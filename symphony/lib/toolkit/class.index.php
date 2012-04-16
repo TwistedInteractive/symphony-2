@@ -357,9 +357,12 @@ class Index
 	 */
 	public function removeNode($xpath)
 	{
-		$node = $this->xpath($xpath);
-		$node = $node[0];
-		unset($node);
+		$nodes = $this->xpath($xpath);
+		// $node = $node[0];
+		foreach ($nodes as $item) {
+		    $node = dom_import_simplexml($item);
+		    $node->parentNode->removeChild($node);
+		}
 	}
 
 	/**
