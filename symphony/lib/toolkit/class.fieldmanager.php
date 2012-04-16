@@ -261,7 +261,7 @@
 				{
 					self::index()->editValue(sprintf('section/fields/field[unique_hash=\'%s\']/%s', $hash, $key), $value);
 				} else {
-					self::index()->editAttribute(sprintf('section/fields/field[unique_hash=\'%s\']/name', $hash, $key), 'handle', $value);
+					self::index()->editAttribute(sprintf('section/fields/field[unique_hash=\'%s\']/label', $hash, $key), 'handle', $value);
 				}
 			}
 
