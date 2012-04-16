@@ -322,7 +322,7 @@
 			);
 
 			// Save the new XML:
-			SectionManager::__saveXMLFile(
+			return SectionManager::__saveXMLFile(
 				self::index()->xpath(sprintf('section[unique_hash=\'%s\']/name/@handle', $section_hash), true),
 				self::index()->getFormattedXML(sprintf('section[unique_hash=\'%s\']', $section_hash))
 			);
@@ -340,6 +340,7 @@
 		 */
 		public static function delete($id) {
 			$existing = self::fetch($id);
+			throw(new Exception('ho'));
 			$existing->tearDown();
 
 			// Symphony::Database()->delete('tbl_fields', " `id` = '$id'");
@@ -419,10 +420,16 @@
 							$data['element_name'] = (string)$node['element_name'];
 						}*/
 					}
-					$data['parent_section'] = self::index()->xpath(
+
+					// Set the ID of the parent section:
+					$data['parent_section'] = SectionManager::lookup()->getId(self::index()->xpath(
 						sprintf('section[fields/field/unique_hash=\'%s\']/unique_hash',
-							(string)$fieldNode->unique_hash), true);
+							(string)$fieldNode->unique_hash), true)
+					);
+
+					// Set the ID:
 					$data['id'] = self::lookup()->getId((string)$fieldNode->unique_hash);
+
 					// For backward compatibility (since field_id was added when reading tbl_fields_[xxx]):
 					$data['field_id'] = $data['id'];
 

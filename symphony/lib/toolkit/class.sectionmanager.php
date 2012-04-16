@@ -178,11 +178,32 @@
 		 *  The handle of the section
 		 * @param $xml
 		 *  The XML data
+		 * @return bool
+		 *  true on success, false on failure
 		 */
 		public static function __saveXMLFile($handle, $xml)
 		{
-			General::writeFile(WORKSPACE.'/sections/'.$handle.'.xml', $xml,
+			return General::writeFile(WORKSPACE.'/sections/'.$handle.'.xml', $xml,
 				Symphony::Configuration()->get('write_mode', 'file')
+			);
+		}
+
+		/**
+		 * Save the section to an XML file according to it's ID.
+		 *
+		 * @param $section_id
+		 *  The ID of the section
+		 * @return bool
+		 *  true on success, false on failure
+		 */
+		public function saveSection($section_id)
+		{
+			$hash   = self::lookup()->getHash($section_id);
+			$handle = self::index()->xpath(
+				sprintf('section[unique_hash=\'%s\']/name/@handle', $hash), true
+			);
+			return self::__saveXMLFile($handle,
+				self::index()->getFormattedXML(sprintf('section[unique_hash=\'%s\']', $hash))
 			);
 		}
 
@@ -553,10 +574,51 @@
 				$parent_section_id = $parent_field->get('parent_section');
 			}
 
+/*			<associations>
+				<association>
+					<parent_field></parent_field>
+					<child_section></child_section>
+					<child_field></child_field>
+					<show_association></show_association>
+				</association>
+			</associations>*/
+
+
 			$child_field = FieldManager::fetch($child_field_id);
 			$child_section_id = $child_field->get('parent_section');
 
-			$fields = array(
+			$parent_section_hash	= self::lookup()->getHash($parent_section_id);
+			$parent_field_hash		= FieldManager::lookup()->getHash($parent_field_id);
+			$child_section_hash		= self::lookup()->getHash($child_section_id);
+			$child_field_hash		= FieldManager::lookup()->getHash($child_field_id);
+
+			// Save the association in the section XML:
+			// Check if the associations node exists:
+			$nodes = self::index()->xpath(
+				sprintf('section[unique_hash=\'%s\']/associations', $parent_section_hash)
+			);
+			if(empty($nodes))
+			{
+				// Add the associations node:
+				var_dump($parent_field->get('parent_section'));
+				self::index()->xpath(
+					sprintf('section[unique_hash=\'%s\']', $parent_section_hash), true
+				)->addChild('associations');
+			}
+			// Add the association:
+			$node = self::index()->xpath(
+				sprintf('section[unique_hash=\'%s\']/associations', $parent_section_hash), true
+			)->addChild('association');
+
+			$node->addChild('parent_field', $parent_field_hash);
+			$node->addChild('child_section', $child_section_hash);
+			$node->addChild('child_field', $child_field_hash);
+			$node->addChild('show_association', ($show_association ? 'no' : 'yes'));
+
+			// Save the section:
+			return self::saveSection($parent_section_id);
+
+/*			$fields = array(
 				'parent_section_id' => $parent_section_id,
 				'parent_section_field_id' => $parent_field_id,
 				'child_section_id' => $child_section_id,
@@ -564,7 +626,7 @@
 				'hide_association' => ($show_association ? 'no' : 'yes')
 			);
 
-			return Symphony::Database()->insert($fields, 'tbl_sections_association');
+			return Symphony::Database()->insert($fields, 'tbl_sections_association');*/
 		}
 
 		/**
@@ -576,7 +638,14 @@
 		 * @return boolean
 		 */
 		public static function removeSectionAssociation($child_field_id) {
-			return Symphony::Database()->delete('tbl_sections_association', sprintf(" `child_section_field_id` = %d ", $child_field_id));
+			// Remove the node
+			self::index()->removeNode(
+				sprintf('section/associations/association[child_field=\'%s\']', FieldManager::lookup()->getHash($child_field_id))
+			);
+			// Save the field (actually, save the section containing the field):
+			return FieldManager::saveField($child_field_id);
+
+			// return Symphony::Database()->delete('tbl_sections_association', sprintf(" `child_section_field_id` = %d ", $child_field_id));
 		}
 
 		/**
@@ -597,7 +666,34 @@
 		 * @return array
 		 */
 		public static function fetchAssociatedSections($section_id, $respect_visibility = false) {
-			return Symphony::Database()->fetch(sprintf("
+			$xpath = sprintf('section[unique_hash=\'%s\']/associations/association', self::lookup()->getHash($section_id));
+			if($respect_visibility)
+			{
+				$xpath .= '[show_association=\'yes\']';
+			}
+			$associations = self::index()->xpath($xpath);
+
+			$result = array();
+
+			if(is_array($associations))
+			{
+				foreach($associations as $association)
+				{
+					$result[] = array(
+						'parent_section_id'			=> $section_id,
+						'parent_section_field_id'	=> FieldManager::lookup()->getId((string)$association->parent_field),
+						'child_section_id'			=> self::lookup()->getId((string)$association->child_section),
+						'child_section_field_id'	=> FieldManager::lookup()->getId((string)$association->child_field),
+						'show_association' 			=> (string)$association->show_assocation,
+						// For backward compatibility:
+						'hide_association'			=> ((string)$association->show_assocation == 'no' ? 'yes' : 'no')
+					);
+				}
+			}
+
+			return $result;
+
+/*			return Symphony::Database()->fetch(sprintf("
 					SELECT *
 					FROM `tbl_sections_association` AS `sa`, `tbl_sections` AS `s`
 					WHERE `sa`.`parent_section_id` = %d
@@ -607,7 +703,9 @@
 				",
 				$section_id,
 				($respect_visibility) ? "AND `sa`.`hide_association` = 'no'" : ""
-			));
+			));*/
+
+
 		}
 
 	}
