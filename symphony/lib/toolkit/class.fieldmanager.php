@@ -280,7 +280,7 @@
 		 * @return bool
 		 *  true on success, false on failure
 		 */
-		public static function addOptions($id, $data)
+		public static function saveOptions($id, $data)
 		{
 			$hash = self::lookup()->getHash($id);
 			$nodes = self::index()->xpath(sprintf('section/fields/field[unique_hash=\'%s\']', $hash));
@@ -366,6 +366,9 @@
 
 			// Remove entry data:
 			Symphony::Database()->query('DROP TABLE `tbl_entries_data_'.$id.'`');
+
+			// Remove section hash:
+			self::lookup()->delete($hash);
 
 			return true;
 		}
@@ -1070,9 +1073,15 @@
 			$xpath.= '/fields/field';
 			if(!empty($id_list))
 			{
+				$hash_list = array();
+				foreach($id_list as $id)
+				{
+					$hash_list[] = self::lookup()->getHash($id);
+				}
 				$xpath .= '[unique_hash!=\''.implode(
-						'\' and unique_hash!=\'', $id_list).'\']';
+						'\' and unique_hash!=\'', $hash_list).'\']';
 			}
+
 			$fields = self::index()->xpath($xpath);
 			$ids    = array();
 

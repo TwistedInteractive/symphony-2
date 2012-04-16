@@ -116,7 +116,7 @@
 
 			return Symphony::Database()->insert($fields, 'tbl_fields_' . $this->handle());*/
 
-			return FieldManager::addOptions($this->get('id'), array(
+			return FieldManager::saveOptions($this->get('id'), array(
 				'validator' => $fields['validator']
 			));
 
