@@ -153,7 +153,6 @@
 				$fields['unique_hash'] = md5($fields['label'].time());
 			}
 
-			$configuration = '';
 			// Get the available configuration fields from the field itself:
 /*			$configuration_fields = FieldManager::create($fields['type'])->getConfiguration();
 			if(!empty($configuration_fields))
@@ -178,7 +177,6 @@
 					<sortorder>%6$s</sortorder>
 					<location>%7$s</location>
 					<show_column>%8$s</show_column>
-					<configuration>%9$s</configuration>
 				</field>',
 				$fields['element_name'],
 				$fields['label'],
@@ -187,8 +185,7 @@
 				(isset($fields['required']) ? $fields['required'] : 'no'),
 				$fields['sortorder'],
 				$fields['location'],
-				$fields['show_column'],
-				$configuration
+				$fields['show_column']
 			);
 			$fieldXML = new SimpleXMLElement($field_str);
 
