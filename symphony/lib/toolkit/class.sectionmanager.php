@@ -638,12 +638,23 @@
 		 * @return boolean
 		 */
 		public static function removeSectionAssociation($child_field_id) {
-			// Remove the node
+			// Get the sections with the association:
+			$sections = self::index()->xpath(
+				sprintf('section[associations/association/child_field=\'%s\']', FieldManager::lookup()->getHash($child_field_id))
+			);
+
+			// Remove the nodes:
 			self::index()->removeNode(
 				sprintf('section/associations/association[child_field=\'%s\']', FieldManager::lookup()->getHash($child_field_id))
 			);
-			// Save the field (actually, save the section containing the field):
-			return FieldManager::saveField($child_field_id);
+
+			// Save the sections:
+			foreach($sections as $section)
+			{
+				self::saveSection(self::lookup()->getId((string)$section->unique_hash));
+			}
+
+			return true;
 
 			// return Symphony::Database()->delete('tbl_sections_association', sprintf(" `child_section_field_id` = %d ", $child_field_id));
 		}
