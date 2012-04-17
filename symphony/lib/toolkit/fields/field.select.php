@@ -266,7 +266,7 @@
 			$fields['sort_options'] = $this->get('sort_options') == 'yes' ? 'yes' : 'no';
 			$fields['show_association'] = $this->get('show_association') == 'yes' ? 'yes' : 'no';
 
-			if(!FieldManager::saveOptions($this->get('id'), $fields)) return false;
+			if(!FieldManager::saveSettings($this->get('id'), $fields)) return false;
 
 /*			Symphony::Database()->query("DELETE FROM `tbl_fields_".$this->handle()."` WHERE `field_id` = '$id' LIMIT 1");
 

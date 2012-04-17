@@ -109,7 +109,7 @@
 			// $fields['field_id'] = $id;
 			$fields['default_state'] = ($this->get('default_state') ? $this->get('default_state') : 'off');
 
-			return FieldManager::saveOptions($this->get('id'), $fields);
+			return FieldManager::saveSettings($this->get('id'), $fields);
 
 /*			Symphony::Database()->query("DELETE FROM `tbl_fields_".$this->handle()."` WHERE `field_id` = '$id' LIMIT 1");
 			return Symphony::Database()->insert($fields, 'tbl_fields_' . $this->handle());*/

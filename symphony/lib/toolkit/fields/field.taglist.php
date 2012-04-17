@@ -151,7 +151,7 @@
 			$fields['pre_populate_source'] = (is_null($this->get('pre_populate_source')) ? NULL : implode(',', $this->get('pre_populate_source')));
 			$fields['validator'] = ($fields['validator'] == 'custom' ? NULL : $this->get('validator'));
 
-			return FieldManager::saveOptions($this->get('id'), $fields);
+			return FieldManager::saveSettings($this->get('id'), $fields);
 
 /*			Symphony::Database()->query("DELETE FROM `tbl_fields_".$this->handle()."` WHERE `field_id` = '$id' LIMIT 1");
 

@@ -265,11 +265,11 @@
 
 			self::saveField($id);*/
 
-			return self::saveOptions($id, $fields);
+			return self::saveSettings($id, $fields);
 		}
 
 		/**
-		 * Add some custom options to the field
+		 * Add some custom settings to the field
 		 *
 		 * @param $id
 		 *  The ID of the field
@@ -278,7 +278,7 @@
 		 * @return bool
 		 *  true on success, false on failure
 		 */
-		public static function saveOptions($id, $data)
+		public static function saveSettings($id, $data)
 		{
 			$hash = self::lookup()->getHash($id);
 			$nodes = self::index()->xpath(sprintf('section/fields/field[unique_hash=\'%s\']', $hash));

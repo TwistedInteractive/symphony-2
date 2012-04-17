@@ -116,7 +116,7 @@
 
 			return Symphony::Database()->insert($fields, 'tbl_fields_' . $this->handle());*/
 
-			return FieldManager::saveOptions($this->get('id'), $fields);
+			return FieldManager::saveSettings($this->get('id'), $fields);
 
 		}
 
