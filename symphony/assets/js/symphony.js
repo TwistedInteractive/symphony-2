@@ -16,25 +16,40 @@ var Symphony = (function($) {
 		Support: {}
 	};
 
-/*-----------------------------------------------------------------------*/
-	
+/*-------------------------------------------------------------------------
+	Functions
+-------------------------------------------------------------------------*/
+
 	// Replace variables in string
 	function replaceVariables(string, inserts) {
-		$.each(inserts, function(index, value) {
-			string = string.replace('{$' + index + '}', value);
-		});
+		if($.type(string) === 'string' && $.type(inserts) === 'object') {
+			$.each(inserts, function(index, value) {
+				string = string.replace('{$' + index + '}', value);
+			});
+		}
 		return string;
 	};
 
 	// Get localised strings
 	function translate(strings) {
+		var namespace = $.trim(Symphony.Context.get('env')['page-namespace']),
+			data = {
+				'strings': strings
+			};
+
+		// Validate and set namespace
+		if($.type(namespace) === 'string' && namespace !== '') {
+			data['namespace'] = namespace;
+		}
+
+		// Request translations
 		$.ajax({
 			async: false,
 			type: 'GET',
 			url: Symphony.Context.get('root') + '/symphony/ajax/translate/',
-			data: { 'strings': strings },
+			data: data,
 			dataType: 'json',
-			
+
 			// Add localised strings
 			success: function(result) {
 				$.extend(true, Storage.Dictionary, result);
@@ -58,22 +73,22 @@ var Symphony = (function($) {
 
 	// Deep copy jQuery.support
 	$.extend(true, Storage.Support, $.support);
-	
+
 /*-------------------------------------------------------------------------
 	Symphony API
 -------------------------------------------------------------------------*/
 
 	return {
-	
+
 		/**
 		 * The Context object contains general information about the system,
 		 * the backend, the current user. It includes an add and a get function.
 		 * This is a private object and can only be accessed via add and get.
 		 *
 		 * @class
-		 */ 	
+		 */
 	 	Context: {
-	 	
+
 	 		/**
 			 * Add data to the Context object
 			 *
@@ -83,17 +98,17 @@ var Symphony = (function($) {
 			 *  Object or string to be stored
 			 */
 			add: function addContext(group, values) {
-		
+
 				// Extend existing group
 				if(Storage.Context[group] && $.type(values) !== 'string') {
 					$.extend(Storage.Context[group], values);
 				}
-		
+
 				// Add new group
 				else {
 					Storage.Context[group] = values;
 				}
-		
+
 				// Always return
 				return true;
 			},
@@ -105,22 +120,22 @@ var Symphony = (function($) {
 			 *  Name of the group to be returned
 			 */
 			get: function getContext(group) {
-		
+
 				// Return full context, if no group is set
 				if(!group) {
 					return Storage.Context;
 				}
-		
+
 				// Return false if group does not exist in Storage
 				if(typeof Storage.Context[group] === undefined) {
 					return false;
 				}
-		
+
 				// Default: Return context group
 				return Storage.Context[group];
 			}
 		},
-		
+
 		/**
 		 * The Language object stores the dictionary with all needed translations.
 		 * It offers public functions to add strings and get their translation and
@@ -141,37 +156,26 @@ var Symphony = (function($) {
 			 *  Object with English string as key, value should be false
 			 */
 			add: function addStrings(strings) {
-				var temp = {},
-					namespace = (Symphony.Context.get('env') ? Symphony.Context.get('env')['page-namespace'] : '');
-		
-				// Don't process empty strings
-				if($.isEmptyObject(strings)) {
-					return true;
-				}
-		
-				// Set key as value
-				if($.type(namespace) === 'string' && $.trim(namespace) !== '') {
-					if (!temp[namespace]) {
-						temp[namespace] = {};
-					}
-		
-					$.each(strings, function(key, value) {
-						temp[namespace][key] = key;
-					});
-				} else {
-					$.each(strings, function(key, value) {
-						temp[key] = key;
-					});
-				}
-		
-				// Save English strings
+
+				// English system
 				if(Symphony.Context.get('lang') === 'en') {
-					$.extend(true, Storage.Dictionary, temp);
+					$.extend(true, Storage.Dictionary, strings);
 				}
-		
-				// Translate strings and defer merging objects until translate() has returned
+
+				// Localised system
 				else {
-					translate(temp);
+
+					// Check if strings have already been translated
+					$.each(strings, function checkStrings(index, key) {
+						if(key in Storage.Dictionary) {
+							delete strings[key];
+						}
+					})
+
+					// Translate strings
+					if(!$.isEmptyObject(strings)) {
+						translate(strings);
+					}
 				}
 			},
 
@@ -188,32 +192,21 @@ var Symphony = (function($) {
 			 *  Returns the translated string
 			 */
 			get: function getString(string, inserts) {
-		
-				// Get translated string
-				var translatedString,
-					namespace = (Symphony.Context.get('env') ? Symphony.Context.get('env')['page-namespace'] : '');
-		
-				if($.type(namespace) === 'string' && $.trim(namespace) !== '' && Storage.Dictionary[namespace] !== undefined) {
-					translatedString = Storage.Dictionary[namespace][string];
-				} else {
-					translatedString = Storage.Dictionary[string];
+				var translation = Storage.Dictionary[string];
+
+				// Validate and set translation
+				if($.type(translation) === 'string') {
+					string = translation;
 				}
-		
-				// Return string if it cannot be found in the dictionary
-				if(translatedString !== false) {
-					string = translatedString;
-				}
-		
+
 				// Insert variables
-				if(inserts !== undefined && inserts !== null) {
-					string = replaceVariables(string, inserts);
-				}
-		
+				string = replaceVariables(string, inserts);
+
 				// Return translated string
 				return string;
 			}
 		},
-		
+
 		/**
 		 * The message object handles system messages that should be displayed on the fly.
 		 * It offers a post and a clear function to set and remove messages. Absolute dates
@@ -251,7 +244,7 @@ var Symphony = (function($) {
 				$('header p.notice').filter('.' + type).first().trigger('detach.notify');
 			}
 		},
-		
+
 		/**
 		 * A collection of properties that represent the presence of
 		 * different browser features and also contains the test results
@@ -260,7 +253,7 @@ var Symphony = (function($) {
 		 * @class
 		 */
 		Support: Storage.Support,
-		
+
 		/**
 		 * A namespace for extension to store global functions
 		 *
