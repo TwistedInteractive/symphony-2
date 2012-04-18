@@ -249,18 +249,29 @@
 		 *  True on success, false on failure
 		 */
 		public static function saveSettings($field_id, $settings) {
-			// Get the type of this field:
-			$type = self::fetchFieldTypeFromID($field_id);
-
-			// Delete the original settings:
-			Symphony::Database()->delete("`tbl_fields_".$type."`", sprintf("`field_id` = %d LIMIT 1", $field_id));
-
-			// Insert the new settings into the type table:
-			if(!isset($settings['field_id'])) {
-				$settings['field_id'] = $field_id;
+			$hash = self::lookup()->getHash($field_id);
+			$nodes = self::index()->xpath(sprintf('section/fields/field[unique_hash=\'%s\']', $hash));
+			if(count($nodes) == 1)
+			{
+				$node = $nodes[0];
+				// Field found, now add or edit the options:
+				foreach($settings as $key => $value)
+				{
+					$match = $node->xpath($key);
+					if(!empty($match))
+					{
+						// Edit the node:
+						self::index()->editValue(sprintf('section/fields/field[unique_hash=\'%s\']/%s', $hash, $key), $value);
+					} else {
+						// Add the node:
+						$node->addChild($key, $value);
+					}
+				}
 			}
 
-			return Symphony::Database()->insert($settings, 'tbl_fields_'.$type);
+			self::saveField($field_id);
+
+			return true;
 		}
 
 		/**
@@ -294,43 +305,6 @@
 			self::saveField($id);*/
 
 			return self::saveSettings($id, $fields);
-		}
-
-		/**
-		 * Add some custom settings to the field
-		 *
-		 * @param $id
-		 *  The ID of the field
-		 * @param $data
-		 *  An associated array with options
-		 * @return bool
-		 *  true on success, false on failure
-		 */
-		public static function saveSettings($id, $data)
-		{
-			$hash = self::lookup()->getHash($id);
-			$nodes = self::index()->xpath(sprintf('section/fields/field[unique_hash=\'%s\']', $hash));
-			if(count($nodes) == 1)
-			{
-				$node = $nodes[0];
-				// Field found, now add or edit the options:
-				foreach($data as $key => $value)
-				{
-					$match = $node->xpath($key);
-					if(!empty($match))
-					{
-						// Edit the node:
-						self::index()->editValue(sprintf('section/fields/field[unique_hash=\'%s\']/%s', $hash, $key), $value);
-					} else {
-						// Add the node:
-						$node->addChild($key, $value);
-					}
-				}
-			}
-			
-			self::saveField($id);
-
-			return true;
 		}
 
 		/**
