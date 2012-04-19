@@ -164,10 +164,6 @@
 			// Save the XML:
 			self::__saveXMLFile(General::createHandle($fields['name']), $dom->saveXML());
 
-			// Re-index:
-			// Todo: optimize the code with a save-function at the end?
-			self::index()->reIndex();
-
 			return $fields['unique_hash'];
 		}
 
@@ -183,9 +179,14 @@
 		 */
 		public static function __saveXMLFile($handle, $xml)
 		{
-			return General::writeFile(WORKSPACE.'/sections/'.$handle.'.xml', $xml,
+			$ok = General::writeFile(WORKSPACE.'/sections/'.$handle.'.xml', $xml,
 				Symphony::Configuration()->get('write_mode', 'file')
 			);
+			// Re-index (since the XML files are changed):
+			// Todo: optimize the code with a save-function at the end?
+			self::index()->reIndex();
+
+			return $ok;
 		}
 
 		/**
@@ -205,6 +206,22 @@
 			return self::__saveXMLFile($handle,
 				self::index()->getFormattedXML(sprintf('section[unique_hash=\'%s\']', $hash))
 			);
+		}
+
+		/**
+		 * This function checks if sections are added, edited or deleted outside Symphony
+		 */
+		public static function checkLookups()
+		{
+			if(self::index()->isDirty())
+			{
+				// The index is dirty. Show a message to go to the diff page.
+
+				// Check if we're in the backend or not:
+				Administration::instance()->Page->pageAlert(
+					sprintf(__('One or more sections are modified outside of Symphony. <a href="#">Show differences</a>')), Alert::ERROR);
+
+			}
 		}
 
 		/**

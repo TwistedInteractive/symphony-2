@@ -107,7 +107,6 @@
 					$page  = "/login";
 				}
 				else {
-
 					// Will redirect an Author to their default area of the Backend
 					// Integers are indicative of section's, text is treated as the path
 					// to the page after `SYMPHONY_URL`
@@ -179,6 +178,9 @@
 			}
 			else {
 				if (!is_array($this->_callback['context'])) $this->_callback['context'] = array();
+
+				// Check if there are new sections added, edited or deleted manually:
+				SectionManager::checkLookups();
 
 				// Do any extensions need updating?
 				$extensions = Symphony::ExtensionManager()->listInstalledHandles();
