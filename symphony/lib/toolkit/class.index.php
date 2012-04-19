@@ -318,13 +318,30 @@ class Index
     }
 
 	/**
-	 * Return the raw index
+	 * Return the cached index
 	 *
 	 * @return SimpleXMLElement
 	 */
 	public function getIndex()
 	{
 		return $this->_index;
+	}
+
+
+	/**
+	 * Return the local, non-cached index
+	 *
+	 * @return SimpleXMLElement
+	 */
+	public function getLocalIndex()
+	{
+		$index = new SimpleXMLElement('<'.$this->_element_name.'/>');
+		$_files = glob($this->_path);
+		foreach($_files as $_file)
+		{
+			$this->mergeXML(&$index, simplexml_load_file($_file));
+		}
+		return $index;
 	}
 
 	/**

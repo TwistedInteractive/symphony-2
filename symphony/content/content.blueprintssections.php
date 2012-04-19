@@ -831,4 +831,27 @@
 		public function __actionEdit(){
 			return $this->__actionNew();
 		}
+
+		/**
+		 * This screen shows the differences between the cached index and the local index
+		 * and offers the options to accept the changes or reject the changes.
+		 */
+		public function __viewDiff(){
+			$this->setTitle(__('%1$s &ndash; %2$s', array(__('Section Differences'), __('Symphony'))));
+			$this->appendSubheading(__('Section Differences'), Widget::Anchor(__('Accept Changes'), Administration::instance()->getCurrentPageURL().'accept/', __('Accept Changes'), 'create button', NULL, array('accesskey' => 'a')));
+
+			// Create the head:
+			$tableHead = Widget::TableHead(array(
+				array(__('Current Sections')),
+				array(__('Proposed Sections')),
+			));
+
+			// Get the indexes:
+			$cachedIndex = SectionManager::index()->getIndex();
+			$localIndex  = SectionManager::index()->getLocalIndex();
+
+			$table = Widget::Table($tableHead);
+
+			$this->Contents->appendChild($table);
+		}
 	}

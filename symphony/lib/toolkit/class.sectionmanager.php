@@ -217,7 +217,8 @@
 			{
 				// The index is dirty. Show a message to go to the diff page.
 				Administration::instance()->Page->pageAlert(
-					sprintf(__('One or more sections are modified outside of Symphony. <a href="#">Show differences</a>')),
+					sprintf(__('One or more sections are modified outside of Symphony. <a href="%s">Show differences</a>'),
+					SYMPHONY_URL.'/blueprints/sections/diff/'),
 					Alert::ERROR
 				);
 			}
