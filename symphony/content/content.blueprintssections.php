@@ -850,7 +850,20 @@
 			$cachedIndex = SectionManager::index()->getIndex();
 			$localIndex  = SectionManager::index()->getLocalIndex();
 
-			$table = Widget::Table($tableHead);
+			$tableRows = array();
+			// Add a row for each section:
+
+			foreach($cachedIndex->xpath('section') as $section)
+			{
+				$tableRows[] = Widget::TableRow(array(
+					new XMLElement('td', (string)$section->name),
+					new XMLElement('td', (string)$section->name)
+				));
+			}
+
+			$tableBody = Widget::TableBody($tableRows);
+
+			$table = Widget::Table($tableHead, null, $tableBody);
 
 			$this->Contents->appendChild($table);
 		}
