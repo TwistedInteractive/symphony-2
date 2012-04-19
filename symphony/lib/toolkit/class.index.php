@@ -241,9 +241,9 @@ class Index
 			// Load the cached XML:
 			$this->_index = new SimpleXMLElement($_data['data']);
 			// Check the MD5:
-			if($this->_index['md5'] != $_md5_hash)
+			if((string)$this->_index['md5'] == $_md5_hash)
 			{
-				$_buildIndex = true;
+				$_buildIndex = false;
 			}
 		}
 
