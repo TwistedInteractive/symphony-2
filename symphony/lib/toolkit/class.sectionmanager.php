@@ -211,16 +211,15 @@
 		/**
 		 * This function checks if sections are added, edited or deleted outside Symphony
 		 */
-		public static function checkLookups()
+		public static function checkIndex()
 		{
 			if(self::index()->isDirty())
 			{
 				// The index is dirty. Show a message to go to the diff page.
-
-				// Check if we're in the backend or not:
 				Administration::instance()->Page->pageAlert(
-					sprintf(__('One or more sections are modified outside of Symphony. <a href="#">Show differences</a>')), Alert::ERROR);
-
+					sprintf(__('One or more sections are modified outside of Symphony. <a href="#">Show differences</a>')),
+					Alert::ERROR
+				);
 			}
 		}
 

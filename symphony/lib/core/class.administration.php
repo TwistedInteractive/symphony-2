@@ -180,7 +180,7 @@
 				if (!is_array($this->_callback['context'])) $this->_callback['context'] = array();
 
 				// Check if there are new sections added, edited or deleted manually:
-				SectionManager::checkLookups();
+				SectionManager::checkIndex();
 
 				// Do any extensions need updating?
 				$extensions = Symphony::ExtensionManager()->listInstalledHandles();
