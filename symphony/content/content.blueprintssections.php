@@ -842,8 +842,8 @@
 
 			// Create the head:
 			$tableHead = Widget::TableHead(array(
-				array(__('Current Sections')),
-				array(__('Proposed Sections')),
+				array(__('Section')),
+				array(__('Changes')),
 			));
 
 			// Get the indexes:
@@ -851,14 +851,157 @@
 			$localIndex  = SectionManager::index()->getLocalIndex();
 
 			$tableRows = array();
-			// Add a row for each section:
 
-			foreach($cachedIndex->xpath('section') as $section)
+			// Array to keep track of the sections that are already found:
+			$foundSections = array();
+
+			$error = false;
+
+			// Check the cached sections:
+			foreach($cachedIndex->xpath('section') as $cachedSection)
 			{
-				$tableRows[] = Widget::TableRow(array(
-					new XMLElement('td', (string)$section->name),
-					new XMLElement('td', (string)$section->name)
-				));
+				// Check the differences:
+				$localSection = $localIndex->xpath(
+					sprintf('section[unique_hash=\'%s\']', (string)$cachedSection->unique_hash)
+				);
+				if(count($localSection) == 1)
+				{
+					$localSection = $localSection[0];
+					// Section found in local index, check for differences:
+					$cachedRow = new XMLElement('td', (string)$cachedSection->name);
+					// Check if the parsed XML is identical:
+					if($cachedSection->saveXML() == $localSection->saveXML())
+					{
+						$localRow  = new XMLElement('td', __('No changes found.'));
+					} else {
+						$localRow  = new XMLElement('td', __('Section is modified:'));
+						// Show changes:
+						$changes = new XMLElement('ul');
+						foreach($cachedSection->children() as $cachedElement)
+						{
+							// Iterate through each element to detect changes:
+							$name = $cachedElement->getName();
+							if($name != 'fields')
+							{
+								// See if this element exists in the local section:
+								$localElements = $localSection->xpath($name);
+								if(count($localElements) == 1)
+								{
+									// Local element found, check if there are differences:
+									$localElement = $localElements[0];
+									if($cachedElement->saveXML() != $localElement->saveXML())
+									{
+										// Not identical:
+										$changes->appendChild(
+											new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> : %s → %s'), $name,
+												(string)$cachedElement,
+												(string)$localElement
+											))
+										);
+									}
+								} else {
+									// Local element not found: throw error, since this is not correct:
+									$changes->appendChild(
+										new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> not found. Changes cannot be accepted.'), $name))
+									);
+									$error = true;
+								}
+							} else {
+								// This is the fields-node:
+								$foundFields  = array();
+								$cachedFields = $cachedSection->xpath('fields/field');
+								foreach($cachedFields as $cachedField)
+								{
+									// Check to see if the field exists locally:
+									$localFields = $localSection->xpath(
+										sprintf('fields/field[unique_hash=\'%s\']', (string)$cachedField->unique_hash)
+									);
+									if(count($localFields) == 1)
+									{
+										// Field found, check for differences:
+										$localField = $localFields[0];
+										if($cachedField->saveXML() != $localField->saveXML())
+										{
+											// Field is changed:
+											$li = new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> is changed:'), (string)$cachedField->label));
+											$ul = new XMLElement('ul');
+											// Iterate through the elements:
+											foreach($cachedField->children() as $cachedFieldElement)
+											{
+												// Check if this element exists in the local field:
+												$cachedFieldElementName = $cachedFieldElement->getName();
+												$localFieldElements = $localField->xpath($cachedFieldElementName);
+												if(count($localFieldElements) == 1)
+												{
+													// Field element found, check for differences:
+													$localFieldElement = $localFieldElements[0];
+													if($localFieldElement->saveXML() != $cachedFieldElement->saveXML())
+													{
+														// Difference found:
+														$ul->appendChild(
+															new XMLElement('li', sprintf(__('Field element <em>\'%s\'</em> :  %s → %s'),
+																$cachedFieldElementName,
+																(string)$cachedFieldElement,
+																(string)$localFieldElement))
+														);
+													}
+												} else {
+													// Field element not found: throw error, since this is not correct:
+													$ul->appendChild(
+														new XMLElement('li', sprintf(__('Field element <em>\'%s\'</em> not found. Changes cannot be accepted.'),
+															$cachedFieldElementName))
+													);
+													$error = true;
+												}
+											}
+											$li->appendChild($ul);
+											$changes->appendChild($li);
+										}
+									} else {
+										// Local field not found, this field is going to be deleted:
+										$changes->appendChild(
+											new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> (including it\'s data) is going to be deleted.'),
+												(string)$cachedField->label))
+										);
+									}
+									$foundFields[] = (string)$cachedField->unique_hash;
+								}
+
+								// Check the local fields (to see if there are fields added):
+								foreach($localSection->xpath('fields/field') as $localField)
+								{
+									if(!in_array((string)$localField->unique_hash, $foundFields))
+									{
+										$changes->appendChild(
+											new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> is new and will be added to the section.'),
+												(string)$localField->label))
+										);
+									}
+								}
+							}
+						}
+						$localRow->appendChild($changes);
+					}
+				} else {
+					// Section not found in local index, section is going to be deleted:
+					$cachedRow = new XMLElement('td', (string)$cachedSection->name);
+					$localRow  = new XMLElement('td', __('The section is not found in the local index. This sections is going to be deleted'));
+				}
+				$foundSections[] = (string)$cachedSection->unique_hash;
+
+				$tableRows[] = Widget::TableRow(array($cachedRow, $localRow));
+			}
+
+			// Check the local sections (to see if there are sections added):
+			foreach($localIndex->xpath('section') as $localSection)
+			{
+				if(!in_array((string)$localSection->unique_hash, $foundSections))
+				{
+					$tableRows[] = Widget::TableRow(array(
+						new XMLElement('td', (string)$localSection->name),
+						new XMLElement('td', __('This section is new and will be created.')
+					)));
+				}
 			}
 
 			$tableBody = Widget::TableBody($tableRows);
@@ -867,4 +1010,6 @@
 
 			$this->Contents->appendChild($table);
 		}
+
+
 	}
