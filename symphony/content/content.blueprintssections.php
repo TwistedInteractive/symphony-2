@@ -838,7 +838,6 @@
 		 */
 		public function __viewDiff(){
 			$this->setTitle(__('%1$s &ndash; %2$s', array(__('Section Differences'), __('Symphony'))));
-			$this->appendSubheading(__('Section Differences'), Widget::Anchor(__('Accept Changes'), Administration::instance()->getCurrentPageURL().'accept/', __('Accept Changes'), 'create button', NULL, array('accesskey' => 'a')));
 
 			// Create the head:
 			$tableHead = Widget::TableHead(array(
@@ -855,7 +854,11 @@
 			// Array to keep track of the sections that are already found:
 			$foundSections = array();
 
+			// Flag if an error is found (and changes cannot be accepted):
 			$error = false;
+
+			// Keep track of which field types are available:
+			$availableFieldTypes = FieldManager::listAll();
 
 			// Check the cached sections:
 			foreach($cachedIndex->xpath('section') as $cachedSection)
@@ -938,12 +941,32 @@
 													if($localFieldElement->saveXML() != $cachedFieldElement->saveXML())
 													{
 														// Difference found:
-														$ul->appendChild(
-															new XMLElement('li', sprintf(__('Field element <em>\'%s\'</em> :  %s → %s'),
-																$cachedFieldElementName,
-																(string)$cachedFieldElement,
-																(string)$localFieldElement))
-														);
+														$typeError = false;
+														// Check if the difference is the type of the field:
+														if($cachedFieldElementName == 'type')
+														{
+															// Check if this type exists in the current Symphony installation:
+															if(!in_array((string)$localFieldElement, $availableFieldTypes))
+															{
+																$ul->appendChild(
+																	new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> has an invalid type. Install the field type first :  <em>\'%s\'</em>'),
+																		$cachedFieldElementName,
+																		(string)$localFieldElement))
+																);
+																$error = true;
+																$typeError = true;
+															}
+														}
+														if(!$typeError)
+														{
+															// Show the difference:
+															$ul->appendChild(
+																new XMLElement('li', sprintf(__('Field element <em>\'%s\'</em> :  %s → %s'),
+																	$cachedFieldElementName,
+																	(string)$cachedFieldElement,
+																	(string)$localFieldElement))
+															);
+														}
 													}
 												} else {
 													// Field element not found: throw error, since this is not correct:
@@ -972,10 +995,21 @@
 								{
 									if(!in_array((string)$localField->unique_hash, $foundFields))
 									{
-										$changes->appendChild(
-											new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> is new and will be added to the section.'),
-												(string)$localField->label))
-										);
+										// Check if this fields type is available in this Symphony installation:
+										if(!in_array((string)$localField->type, $availableFieldTypes))
+										{
+											$changes->appendChild(
+												new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> cannot be installed for this section. Install the field type first :  <em>\'%s\'</em>'),
+													(string)$localField->label,
+													(string)$localField->type))
+											);
+											$error = true;
+										} else {
+											$changes->appendChild(
+												new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> is new and will be added to the section.'),
+													(string)$localField->label))
+											);
+										}
 									}
 								}
 							}
@@ -997,10 +1031,32 @@
 			{
 				if(!in_array((string)$localSection->unique_hash, $foundSections))
 				{
-					$tableRows[] = Widget::TableRow(array(
-						new XMLElement('td', (string)$localSection->name),
-						new XMLElement('td', __('This section is new and will be created.')
-					)));
+					$cachedRow = new XMLElement('td', (string)$localSection->name);
+
+					// Check if the field types used by this sections are available in this Symphony installation:
+					$ok = true;
+					$notFoundFields = new XMLElement('ul');
+					foreach($localSection->xpath('fields/field') as $localField)
+					{
+						if(!in_array((string)$localField->type, $availableFieldTypes))
+						{
+							$ok = false;
+							$notFoundFields->appendChild(
+								new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> cannot be installed for this section. Install the field type first :  <em>\'%s\'</em>'),
+									(string)$localField->label,
+									(string)$localField->type))
+							);
+							$error = true;
+						}
+					}
+					if($ok)
+					{
+						$localRow = new XMLElement('td', __('This section is new and will be created.'));
+					} else {
+						$localRow = new XMLElement('td', __('This section cannot be added because of the following problems:'));
+						$localRow->appendChild($notFoundFields);
+					}
+					$tableRows[] = Widget::TableRow(array($cachedRow, $localRow));
 				}
 			}
 
@@ -1008,6 +1064,18 @@
 
 			$table = Widget::Table($tableHead, null, $tableBody);
 
+			if(!$error)
+			{
+				$list = new XMLElement('ul', null, array('class'=>'actions'));
+				$list->appendChild(new XMLElement('li', Widget::Anchor(__('Accept Changes'), Administration::instance()->getCurrentPageURL().'accept/', __('Accept Changes'), 'create button', NULL, array('accesskey' => 'a'))));
+				$list->appendChild(new XMLElement('li', Widget::Anchor(__('Reject Changes'), Administration::instance()->getCurrentPageURL().'reject/', __('Reject Changes'), 'button', NULL, array('accesskey' => 'r'))));
+				// $this->appendSubheading(__('Section Differences'), Widget::Anchor(__('Accept Changes'), Administration::instance()->getCurrentPageURL().'accept/', __('Accept Changes'), 'create button', NULL, array('accesskey' => 'a')));
+				$this->appendSubheading(__('Section Differences'));
+				$this->Context->appendChild($list);
+			} else {
+				$this->Contents->appendChild(new XMLElement('p', __('The changes cannot be accepted for one ore more reasons. Please see the report below to find out what\'s wrong:')));
+				$this->appendSubheading(__('Section Differences'), Widget::Anchor(__('Reject Changes'), Administration::instance()->getCurrentPageURL().'reject/', __('Reject Changes'), 'button', NULL, array('accesskey' => 'r')));
+			}
 			$this->Contents->appendChild($table);
 		}
 
