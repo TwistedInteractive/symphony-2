@@ -177,15 +177,17 @@
 		 * @return bool
 		 *  true on success, false on failure
 		 */
-		public static function __saveXMLFile($handle, $xml)
+		public static function __saveXMLFile($handle, $xml, $reIndex = true)
 		{
 			$ok = General::writeFile(WORKSPACE.'/sections/'.$handle.'.xml', $xml,
 				Symphony::Configuration()->get('write_mode', 'file')
 			);
-			// Re-index (since the XML files are changed):
-			// Todo: optimize the code with a save-function at the end?
-			self::index()->reIndex();
-
+			if($reIndex)
+			{
+				// Re-index (since the XML files are changed):
+				// Todo: optimize the code with a save-function at the end?
+				self::index()->reIndex();
+			}
 			return $ok;
 		}
 
@@ -194,17 +196,19 @@
 		 *
 		 * @param $section_id
 		 *  The ID of the section
+		 * @param $reIndex
+		 *  Is a reIndex required?
 		 * @return bool
 		 *  true on success, false on failure
 		 */
-		public function saveSection($section_id)
+		public static function saveSection($section_id, $reIndex = true)
 		{
 			$hash   = self::lookup()->getHash($section_id);
 			$handle = self::index()->xpath(
 				sprintf('section[unique_hash=\'%s\']/name/@handle', $hash), true
 			);
 			return self::__saveXMLFile($handle,
-				self::index()->getFormattedXML(sprintf('section[unique_hash=\'%s\']', $hash))
+				self::index()->getFormattedXML(sprintf('section[unique_hash=\'%s\']', $hash)), $reIndex
 			);
 		}
 

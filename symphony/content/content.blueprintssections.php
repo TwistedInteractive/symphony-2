@@ -837,6 +837,37 @@
 		 * and offers the options to accept the changes or reject the changes.
 		 */
 		public function __viewDiff(){
+			// Check if accept or reject is clicked:
+			$context = $this->getContext();
+			if(isset($context[1]))
+			{
+				switch($context[1])
+				{
+					case 'accept' :
+						{
+							$this->__acceptDiff();
+							/* Todo: Show the notice after the redirect: */
+							Administration::instance()->Page->pageAlert(__('Sections modifications are successfully accepted.'), Alert::SUCCESS);
+							redirect(SYMPHONY_URL.'/blueprints/sections/');
+							break;
+						}
+					case 'reject' :
+						{
+							$this->__rejectDiff();
+							/* Todo: Show the notice after the redirect: */
+							Administration::instance()->Page->pageAlert(__('Sections modifications are successfully rejected.'), Alert::SUCCESS);
+							redirect(SYMPHONY_URL.'/blueprints/sections/');
+							break;
+						}
+					default:
+						{
+							// Invalid URL, redirect to diff screen:
+							redirect(SYMPHONY_URL.'/blueprints/sections/diff/');
+							break;
+						}
+				}
+			}
+
 			$this->setTitle(__('%1$s &ndash; %2$s', array(__('Section Differences'), __('Symphony'))));
 			$this->addStylesheetToHead(SYMPHONY_URL.'/assets/css/symphony.diff.css');
 
@@ -1081,17 +1112,56 @@
 			if(!$error)
 			{
 				$list = new XMLElement('ul', null, array('class'=>'actions'));
-				$list->appendChild(new XMLElement('li', Widget::Anchor(__('Accept Changes'), Administration::instance()->getCurrentPageURL().'accept/', __('Accept Changes'), 'create button', NULL, array('accesskey' => 'a'))));
-				$list->appendChild(new XMLElement('li', Widget::Anchor(__('Reject Changes'), Administration::instance()->getCurrentPageURL().'reject/', __('Reject Changes'), 'button', NULL, array('accesskey' => 'r'))));
+				$list->appendChild(new XMLElement('li', Widget::Anchor(__('Accept Changes'), SYMPHONY_URL.'/blueprints/sections/diff/accept/', __('Accept Changes'), 'create button', NULL, array('accesskey' => 'a'))));
+				$list->appendChild(new XMLElement('li', Widget::Anchor(__('Reject Changes'), SYMPHONY_URL.'/blueprints/sections/diff/reject/', __('Reject Changes'), 'button', NULL, array('accesskey' => 'r'))));
 				// $this->appendSubheading(__('Section Differences'), Widget::Anchor(__('Accept Changes'), Administration::instance()->getCurrentPageURL().'accept/', __('Accept Changes'), 'create button', NULL, array('accesskey' => 'a')));
 				$this->appendSubheading(__('Section Differences'));
 				$this->Context->appendChild($list);
 			} else {
 				$this->Contents->appendChild(new XMLElement('p', __('The changes cannot be accepted for one ore more reasons. Please see the report below to find out what\'s wrong:'), array('class'=>'diff-notice')));
-				$this->appendSubheading(__('Section Differences'), Widget::Anchor(__('Reject Changes'), Administration::instance()->getCurrentPageURL().'reject/', __('Reject Changes'), 'button', NULL, array('accesskey' => 'r')));
+				$this->appendSubheading(__('Section Differences'), Widget::Anchor(__('Reject Changes'), SYMPHONY_URL.'/blueprints/sections/diff/reject/', __('Reject Changes'), 'button', NULL, array('accesskey' => 'r')));
 			}
 			$this->Contents->appendChild($table);
 		}
 
+		/**
+		 * Function to accept the diff. Use the local XML files to edit the sections
+		 */
+		private function __acceptDiff()
+		{
+			// Iterate through the local section XML files:
+			
+
+			// Install and/or edit the sections:
+
+			// Clear the cache and reIndex:
+
+		}
+
+		/**
+		 * Reject the diff. Use the cached XML tree to re-generate the section XML files.
+		 */
+		private function __rejectDiff()
+		{
+			// Delete all local section XML files:
+			$files = glob(WORKSPACE.'/sections/*.xml');
+			foreach($files as $file)
+			{
+				General::deleteFile($file);
+			}
+
+			// Store the cached sections as new XML files:
+			$index = SectionManager::index()->getIndex();
+			foreach($index->children() as $section)
+			{
+				// Save the section, without reIndexing. We'll reIndex manually after saving all the sections:
+				SectionManager::saveSection(
+					SectionManager::lookup()->getId((string)$section->unique_hash), false
+				);
+			}
+
+			// Clear the cache and reIndex:
+			SectionManager::index()->reIndex();
+		}
 
 	}
