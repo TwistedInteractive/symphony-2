@@ -838,6 +838,7 @@
 		 */
 		public function __viewDiff(){
 			$this->setTitle(__('%1$s &ndash; %2$s', array(__('Section Differences'), __('Symphony'))));
+			$this->addStylesheetToHead(SYMPHONY_URL.'/assets/css/symphony.diff.css');
 
 			// Create the head:
 			$tableHead = Widget::TableHead(array(
@@ -863,6 +864,8 @@
 			// Check the cached sections:
 			foreach($cachedIndex->xpath('section') as $cachedSection)
 			{
+				$rowClass = null;
+
 				// Check the differences:
 				$localSection = $localIndex->xpath(
 					sprintf('section[unique_hash=\'%s\']', (string)$cachedSection->unique_hash)
@@ -875,9 +878,10 @@
 					// Check if the parsed XML is identical:
 					if($cachedSection->saveXML() == $localSection->saveXML())
 					{
-						$localRow  = new XMLElement('td', __('No changes found.'));
+						$localRow = new XMLElement('td', __('No changes found.'));
+						$rowClass = 'no-changes';
 					} else {
-						$localRow  = new XMLElement('td', __('Section is modified:'));
+						$localRow = new XMLElement('td', __('Section is modified:'));
 						// Show changes:
 						$changes = new XMLElement('ul');
 						foreach($cachedSection->children() as $cachedElement)
@@ -908,6 +912,7 @@
 										new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> not found. Changes cannot be accepted.'), $name))
 									);
 									$error = true;
+									$rowClass = 'error';
 								}
 							} else {
 								// This is the fields-node:
@@ -955,6 +960,7 @@
 																);
 																$error = true;
 																$typeError = true;
+																$rowClass = 'error';
 															}
 														}
 														if(!$typeError)
@@ -975,6 +981,7 @@
 															$cachedFieldElementName))
 													);
 													$error = true;
+													$rowClass = 'error';
 												}
 											}
 											$li->appendChild($ul);
@@ -986,6 +993,7 @@
 											new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> (including it\'s data) is going to be deleted.'),
 												(string)$cachedField->label))
 										);
+										$rowClass = 'alert';
 									}
 									$foundFields[] = (string)$cachedField->unique_hash;
 								}
@@ -1004,11 +1012,13 @@
 													(string)$localField->type))
 											);
 											$error = true;
+											$rowClass = 'error';
 										} else {
 											$changes->appendChild(
 												new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> is new and will be added to the section.'),
 													(string)$localField->label))
 											);
+											// $rowClass = 'notice';
 										}
 									}
 								}
@@ -1020,15 +1030,17 @@
 					// Section not found in local index, section is going to be deleted:
 					$cachedRow = new XMLElement('td', (string)$cachedSection->name);
 					$localRow  = new XMLElement('td', __('The section is not found in the local index. This sections is going to be deleted'));
+					$rowClass = 'alert';
 				}
 				$foundSections[] = (string)$cachedSection->unique_hash;
 
-				$tableRows[] = Widget::TableRow(array($cachedRow, $localRow));
+				$tableRows[] = Widget::TableRow(array($cachedRow, $localRow), $rowClass);
 			}
 
 			// Check the local sections (to see if there are sections added):
 			foreach($localIndex->xpath('section') as $localSection)
 			{
+				$rowClass = null;
 				if(!in_array((string)$localSection->unique_hash, $foundSections))
 				{
 					$cachedRow = new XMLElement('td', (string)$localSection->name);
@@ -1047,22 +1059,24 @@
 									(string)$localField->type))
 							);
 							$error = true;
+							$rowClass = 'error';
 						}
 					}
 					if($ok)
 					{
 						$localRow = new XMLElement('td', __('This section is new and will be created.'));
+						// $rowClass = 'notice';
 					} else {
 						$localRow = new XMLElement('td', __('This section cannot be added because of the following problems:'));
 						$localRow->appendChild($notFoundFields);
 					}
-					$tableRows[] = Widget::TableRow(array($cachedRow, $localRow));
+					$tableRows[] = Widget::TableRow(array($cachedRow, $localRow), $rowClass);
 				}
 			}
 
 			$tableBody = Widget::TableBody($tableRows);
 
-			$table = Widget::Table($tableHead, null, $tableBody);
+			$table = Widget::Table($tableHead, null, $tableBody, 'diff');
 
 			if(!$error)
 			{
@@ -1073,7 +1087,7 @@
 				$this->appendSubheading(__('Section Differences'));
 				$this->Context->appendChild($list);
 			} else {
-				$this->Contents->appendChild(new XMLElement('p', __('The changes cannot be accepted for one ore more reasons. Please see the report below to find out what\'s wrong:')));
+				$this->Contents->appendChild(new XMLElement('p', __('The changes cannot be accepted for one ore more reasons. Please see the report below to find out what\'s wrong:'), array('class'=>'diff-notice')));
 				$this->appendSubheading(__('Section Differences'), Widget::Anchor(__('Reject Changes'), Administration::instance()->getCurrentPageURL().'reject/', __('Reject Changes'), 'button', NULL, array('accesskey' => 'r')));
 			}
 			$this->Contents->appendChild($table);
