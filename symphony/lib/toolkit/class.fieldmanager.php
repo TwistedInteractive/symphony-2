@@ -304,6 +304,8 @@
 
 			self::saveField($id);*/
 
+			unset($fields['parent_section']);
+
 			return self::saveSettings($id, $fields);
 		}
 
@@ -342,7 +344,6 @@
 		 */
 		public static function delete($id) {
 			$existing = self::fetch($id);
-			throw(new Exception('ho'));
 			$existing->tearDown();
 
 			// Symphony::Database()->delete('tbl_fields', " `id` = '$id'");

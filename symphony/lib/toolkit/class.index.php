@@ -244,6 +244,7 @@ class Index
 		// Check if the cached version is the same:
 		$_data = $this->_cache->check('index:'.$this->_element_name);
 		$_buildIndex = true;
+		$this->_dirty = true;
 		if($_data !== false)
 		{
 			// Load the cached XML:
@@ -252,14 +253,18 @@ class Index
 			if((string)$this->_index['md5'] == $_md5_hash)
 			{
 				$_buildIndex = false;
+				$this->_dirty = false;
 			}
-		}
-
-		// Set the dirty flag:
-		if($_buildIndex) {
-			$this->_dirty = true;
 		} else {
-			$this->_dirty = false;
+			// No cached data found, create an empty index:
+			$this->_index = new SimpleXMLElement('<'.$this->_element_name.'/>');
+			$this->_index->addAttribute('md5', $_md5_hash);
+			if(!$overwrite)
+			{
+				// Empty index needs to be cached, otherwise you would get a notification about changed sections:
+				// $this->_cache->write('index:'.$this->_element_name, $this->_index->saveXML());
+				// $this->_dirty = false;
+			}
 		}
 
 		// Check if an index needs to be built:

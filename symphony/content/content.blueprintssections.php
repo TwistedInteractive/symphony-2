@@ -1129,13 +1129,142 @@
 		 */
 		private function __acceptDiff()
 		{
-			// Iterate through the local section XML files:
-			
+			// Get the indexes:
+			$cachedIndex = SectionManager::index()->getIndex();
+			$localIndex  = SectionManager::index()->getLocalIndex();
 
-			// Install and/or edit the sections:
+			// Array to keep track of the sections that are already found:
+			$foundSections = array();
 
-			// Clear the cache and reIndex:
+			// Check the cached sections:
+			foreach($cachedIndex->xpath('section') as $cachedSection)
+			{
+				// Check the differences:
+				$localSection = $localIndex->xpath(
+					sprintf('section[unique_hash=\'%s\']', (string)$cachedSection->unique_hash)
+				);
+				if(count($localSection) == 1)
+				{
+					// This sections is found, edit it according to it's local section:
+					$localSection = $localSection[0];
+					SectionManager::edit(
+						SectionManager::lookup()->getId((string)$cachedSection->unique_hash),
+						array(
+							'name' 				=> (string)$localSection->name,
+							'handle' 			=> (string)$localSection->name['handle'],
+							'sortorder' 		=> (string)$localSection->sortorder,
+							'hidden' 			=> (string)$localSection->hidden,
+							'navigation_group' 	=> (string)$localSection->navigation_group
+						)
+					);
 
+					$foundFields = array();
+
+					// Edit the section fields according to it's local section fields:
+					foreach($cachedSection->xpath('fields/field') as $cachedField)
+					{
+						// See if there is a local field that corresponds with the cached field:
+						$localFields = $localSection->xpath(
+							sprintf('fields/field[unique_hash=\'%s\']', (string)$cachedField->unique_hash)
+						);
+						if(count($localFields) == 1)
+						{
+							// Field found, edit it according to it's local brother:
+							$localField = $localFields[0];
+							$fieldElements = array();
+							foreach($cachedField->children() as $cachedFieldElement)
+							{
+								$localValues = $localField->xpath($cachedFieldElement->getName());
+								$fieldElements[$cachedFieldElement->getName()] = (string)$localValues[0];
+							}
+
+							FieldManager::edit(
+								FieldManager::lookup()->getId((string)$cachedField->unique_hash),
+								$fieldElements
+							);
+						} else {
+							// Field not found in local index, field is going to be deleted:
+							FieldManager::delete(
+								FieldManager::lookup()->getId((string)$cachedField->unique_hash)
+							);
+						}
+						$foundFields[] = (string)$cachedField->unique_hash;
+					}
+					// See if there are fields that need to be added to this section:
+					foreach($localSection->xpath('fields/field') as $localSectionField)
+					{
+						if(!in_array((string)$localSectionField->unique_hash, $foundFields))
+						{
+							// Field was not found in the cached index, so it's a new field:
+							$fieldSettings = array(
+								'parent_section' => SectionManager::lookup()->getId(
+									(string)$localSection->unique_hash
+								)
+							);
+
+							// Add the fields:
+							foreach($localSectionField->children() as $localFieldElement)
+							{
+								$fieldSettings[$localFieldElement->getName()] = (string)$localFieldElement;
+							}
+
+							// Add (and thus saving) the field:
+							$id = FieldManager::add($fieldSettings);
+							// Create the data table of the field:
+							$field = FieldManager::fetch($id);
+							$field->createTable();
+						}
+					}
+
+				} else {
+					// Section not found in local index, section is going to be deleted:
+					SectionManager::delete(
+						SectionManager::lookup()->getId((string)$cachedSection->unique_hash)
+					);
+				}
+				$foundSections[] = (string)$cachedSection->unique_hash;
+			}
+
+			// Check the local sections (to see if there are sections added):
+			foreach($localIndex->xpath('section') as $localSection)
+			{
+				if(!in_array((string)$localSection->unique_hash, $foundSections))
+				{
+					$sectionSettings = array(
+						'name' 				=> (string)$localSection->name,
+						'handle' 			=> (string)$localSection->name['handle'],
+						'sortorder' 		=> (string)$localSection->sortorder,
+						'hidden' 			=> (string)$localSection->hidden,
+						'navigation_group' 	=> (string)$localSection->navigation_group,
+						'unique_hash'		=> (string)$localSection->unique_hash
+					);
+					// This is a new section, add it:
+					SectionManager::add(
+						$sectionSettings
+					);
+					// Add the fields:
+					foreach($localSection->xpath('fields/field') as $localSectionField)
+					{
+						$fieldSettings = array(
+							'parent_section' => SectionManager::lookup()->getId(
+								(string)$localSection->unique_hash
+							)
+						);
+
+						// Add the fields:
+						foreach($localSectionField->children() as $localFieldElement)
+						{
+							$fieldSettings[$localFieldElement->getName()] = (string)$localFieldElement;
+						}
+
+						// Add (and thus saving) the field:
+						$id = FieldManager::add($fieldSettings);
+						// Create the data table of the field:
+						$field = FieldManager::fetch($id);
+						$field->createTable();
+					}
+				}
+			}
 		}
 
 		/**
