@@ -82,7 +82,9 @@
 			include_once(TOOLKIT . '/class.sectionmanager.php');
 			include_once(TOOLKIT . '/class.entrymanager.php');
 
-			if(!$section = SectionManager::fetch($this->getSource())){
+			$section_id = SectionManager::lookup()->getId(str_replace('section:', '', $this->getSource()));
+
+			if(!$section = SectionManager::fetch($section_id)){
 				$result->setAttribute('result', 'error');
 				$result->appendChild(new XMLElement('message', __('Section is invalid')));
 				return false;
@@ -101,7 +103,7 @@
 
 			else{
 				$entry =& EntryManager::create();
-				$entry->set('section_id', $this->getSource());
+				$entry->set('section_id', $section_id);
 			}
 
 			if(__ENTRY_FIELD_ERROR__ == $entry->checkPostData($fields, $errors, ($entry->get('id') ? true : false))):

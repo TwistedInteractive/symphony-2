@@ -236,6 +236,45 @@
 		}
 
 		/**
+		 * Save the settings for a Field given it's `$field_id` and an associative
+		 * array of settings.
+		 *
+		 * @since Symphony 2.3
+		 * @param integer $field_id
+		 *  The ID of the field
+		 * @param array $settings
+		 *  An associative array of settings, where the key is the column name
+		 *  and the value is the value.
+		 * @return boolean
+		 *  True on success, false on failure
+		 */
+		public static function saveSettings($field_id, $settings) {
+			$hash = self::lookup()->getHash($field_id);
+			$nodes = self::index()->xpath(sprintf('section/fields/field[unique_hash=\'%s\']', $hash));
+			if(count($nodes) == 1)
+			{
+				$node = $nodes[0];
+				// Field found, now add or edit the options:
+				foreach($settings as $key => $value)
+				{
+					$match = $node->xpath($key);
+					if(!empty($match))
+					{
+						// Edit the node:
+						self::index()->editValue(sprintf('section/fields/field[unique_hash=\'%s\']/%s', $hash, $key), $value);
+					} else {
+						// Add the node:
+						$node->addChild($key, $value);
+					}
+				}
+			}
+
+			self::saveField($field_id);
+
+			return true;
+		}
+
+		/**
 		 * Given a Field ID and associative array of fields, update an existing Field
 		 * row in the `tbl_fields`table. Returns boolean for success/failure
 		 *
@@ -265,44 +304,7 @@
 
 			self::saveField($id);*/
 
-			return self::saveOptions($id, $fields);
-		}
-
-		/**
-		 * Add some custom options to the field
-		 *
-		 * @param $id
-		 *  The ID of the field
-		 * @param $data
-		 *  An associated array with options
-		 * @return bool
-		 *  true on success, false on failure
-		 */
-		public static function saveOptions($id, $data)
-		{
-			$hash = self::lookup()->getHash($id);
-			$nodes = self::index()->xpath(sprintf('section/fields/field[unique_hash=\'%s\']', $hash));
-			if(count($nodes) == 1)
-			{
-				$node = $nodes[0];
-				// Field found, now add or edit the options:
-				foreach($data as $key => $value)
-				{
-					$match = $node->xpath($key);
-					if(!empty($match))
-					{
-						// Edit the node:
-						self::index()->editValue(sprintf('section/fields/field[unique_hash=\'%s\']/%s', $hash, $key), $value);
-					} else {
-						// Add the node:
-						$node->addChild($key, $value);
-					}
-				}
-			}
-			
-			self::saveField($id);
-
-			return true;
+			return self::saveSettings($id, $fields);
 		}
 
 		/**
@@ -1114,4 +1116,5 @@
 		public static function fetchTypes() {
 			return FieldManager::listAll();
 		}
+
 	}

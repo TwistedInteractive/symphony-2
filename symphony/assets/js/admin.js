@@ -42,7 +42,7 @@
 			'The field “{$title}” ({$type}) has been removed.': false,
 			'Undo?': false
 		});
-			
+
 		// Catch all javascript errors and write them to the Symphony Log
 		window.onerror = function(errorMsg, url, line) {
 			$.ajax({
@@ -94,20 +94,20 @@
 				handles: 'td'
 			})
 			.on('orderstart.orderable', function() {
-	
+
 				// Store current sort order
 				oldSorting = $(this).find('input').map(function(e, i) { return this.name + '=' + (e + 1); }).get().join('&');
 			})
 			.on('orderstop.orderable', function() {
 				var orderable = $(this).addClass('busy'),
 					newSorting = orderable.find('input').map(function(e, i) { return this.name + '=' + (e + 1); }).get().join('&');
-	
+
 				// Store sort order, if changed
 				if(newSorting !== oldSorting) {
-	
+
 					// Update items
 					orderable.trigger('orderupdate.admin');
-	
+
 					// Send request
 					$.ajax({
 						type: 'POST',
@@ -140,7 +140,7 @@
 				collapsible: true,
 				preselect: 'input'
 			})
-			.on('keyup.admin', '.instance input[name*="[label]"]', function(event) {
+			.on('blur.admin input.admin keyup.admin', '.instance input[name*="[label]"]', function(event) {
 				var label = $(this),
 					value = label.val();
 
@@ -163,7 +163,7 @@
 					title = item.find('header strong').text(),
 					type = item.find('header span').text(),
 					id = new Date().getTime();
-				
+
 				// Offer undo option after removing a field
 				header.find('div.notifier').trigger('attach.notify', [
 					Symphony.Language.get('The field “{$title}” ({$type}) has been removed.', {
@@ -171,15 +171,15 @@
 						type: type
 					}) + '<a id="' + id + '">' + Symphony.Language.get('Undo?') + '</a>', 'protected']
 				);
-					
+
 				// Prepare field recovery
 				$('#' + id).data('field', item).on('click.admin', function() {
 					var undo = $(this),
-						message = undo.parent(), 
+						message = undo.parent(),
 						field = undo.data('field').hide(),
 						list = $('#fields-duplicator'),
 						duplicator = list.parent().removeClass('empty');
-				
+
 					// Add field
 					field.trigger('constructstart.duplicator');
 					list.prepend(field);
@@ -187,7 +187,7 @@
 					field.slideDown('fast', function() {
 						field.trigger('constructstop.duplicator');
 					});
-					
+
 					// Clear system message
 					message.trigger('detach.notify');
 				});
@@ -238,7 +238,7 @@
 				selection.find('tbody tr:first').trigger('check');
 
 				// Respect menu state
-				button.on('click', function(event) {
+				button.on('click.admin', function(event) {
 					if(applicable.is('.inactive')) {
 						return false;
 					}
@@ -346,20 +346,20 @@
 			// XSLT utilities
 			contents.find('fieldset.primary textarea')
 				.on('keydown.admin', function(event) {
-	
+
 					// Allow tab insertion
 					if(event.which == 9) {
 						var start = this.selectionStart,
 							end = this.selectionEnd,
 							position = this.scrollTop;
-	
+
 						event.preventDefault();
-	
+
 						// Add tab
 						this.value = this.value.substring(0, start) + "\t" + this.value.substring(end, this.value.length);
 						this.selectionStart = start + 1;
 						this.selectionEnd = start + 1;
-	
+
 						// Restore scroll position
 						this.scrollTop = position;
 	   				}
@@ -367,26 +367,26 @@
 				.on('blur.admin', function() {
 					var source = $(this).val(),
 						utilities = $('#utilities li');
-	
+
 					// Remove current selection
 					utilities.removeClass('selected');
-	
+
 					// Get utitities names
 					utilities.find('a').each(function() {
 						var utility = $(this),
 							expression = new RegExp('href=["\']?(?:\\.{2}/utilities/)?' + utility.text());
-	
+
 						// Check for utility occurrences
 						if(expression.test(source)) {
 							utility.parent().addClass('selected');
 						}
 					});
 				}).trigger('blur.admin');
-	
+
 			// Clickable utilities in the XSLT editor
 			contents.find('#utilities li').on('click.admin', function(event) {
 				if($(event.target).is('a')) return;
-	
+
 				var utility = $(this),
 					editor = $('textarea.code'),
 					lines = editor.val().split('\n'),
@@ -397,7 +397,7 @@
 					numberOfNewLines = 1,
 					number_lines = lines.length,
 					i;
-	
+
 				if ($(this).hasClass('selected')) {
 					for(i = 0; i < number_lines; i++) {
 						if($.trim(lines[i]).match(regexp) != null) {
@@ -405,16 +405,16 @@
 							break;
 						}
 					}
-	
+
 					editor.val(lines.join(newLine));
 					utility.removeClass('selected');
 				}
 				else {
 					for(i = 0; i < number_lines; i++) {
 						if($.trim(lines[i]).substring(0, 4) === '<!--' || $.trim(lines[i]).match('^<xsl:(?:import|variable|output|comment|template)')) {
-	
+
 							numberOfNewLines = $.trim(lines[i]).substring(0, 11) === '<xsl:import' ? 1 : 2;
-	
+
 							if(Symphony.Context.get('env')[0] != 'template') {
 								lines[i] = statement.replace('../utilities/', '') + Array(numberOfNewLines + 1).join(newLine) + lines[i];
 							}
@@ -425,7 +425,7 @@
 							break;
 						}
 					}
-	
+
 					editor.val(lines.join(newLine));
 					utility.addClass('selected');
 				}
@@ -442,10 +442,10 @@
 			contents.find('#password').each(function() {
 				var password = $(this),
 					overlay = $('<div class="password"><span class="frame"><button type="button">' + Symphony.Language.get('Change Password') + '</button></span></div>');
-	
+
 				// Add overlay
 				if(password.has('.invalid').length == 0 && Symphony.Context.get('env')[0] != 'new') {
-					overlay.insertBefore(password).find('button').on('click', function(event) {
+					overlay.insertBefore(password).find('button').on('click.admin', function(event) {
 						event.preventDefault();
 						overlay.hide();
 					});
@@ -456,25 +456,25 @@
 	/*--------------------------------------------------------------------------
 		Blueprints - Datasource Editor
 	--------------------------------------------------------------------------*/
-		
+
 		if(body.is('#blueprints-datasources')) {
 			var maxRecord = $('input[name*=max_records]'),
 				pageNumber = $('input[name*=page_number]');
 
 			// Update Data Source output parameter
-			contents.find('input[name="fields[name]"]').on('change', function(){
+			contents.find('input[name="fields[name]"]').on('blur.admin input.admin keyup.admin', function(){
 				var value = $(this).val();
-	
+
 				if(value == '' || $('select[name="fields[param][]"]:visible').length == 0) {
 					$('select[name="fields[param][]"] option').each(function(){
 						var item = $(this),
 							field = item.text().split('.')[1];
-	
+
 						item.text('$ds-' + '?' + '.' + field);
 					});
 					return;
 				}
-	
+
 				$.ajax({
 					type: 'GET',
 					data: { 'string': value },
@@ -484,77 +484,77 @@
 						$('select[name="fields[param][]"] option').each(function(){
 							var item = $(this),
 								field = item.text().split('.')[1];
-	
+
 							item.text('$ds-' + result + '.' + field);
 						});
 					}
 				});
 			});
-	
+
 			// Data source manager options
 			contents.find('select.filtered > optgroup').each(function() {
 				var optgroup = $(this),
 					select = optgroup.parents('select'),
 					label = optgroup.attr('label'),
 					options = optgroup.remove().find('option').addClass('optgroup');
-	
+
 				// Fix for Webkit browsers to initially show the options
 				if (select.attr('multiple')) {
 					select.scrollTop(0);
 				}
-	
+
 				// Show only relevant options based on context
-				$('#ds-context').change(function() {
+				$('#ds-context').on('change.admin', function() {
 					if($(this).find('option:selected').text() == label) {
 						select.find('option.optgroup').remove();
 						select.append(options.clone(true));
 					}
 				});
 			});
-	
+
 			// Data source manager context
 			contents.find('.contextual').each(function() {
 				var area = $(this);
-	
+
 				$('#ds-context').on('change.admin', function() {
 					var select = $(this),
 						optgroup = select.find('option:selected').parent(),
 						value = select.val().replace(/\W+/g, '_'),
 						group = optgroup.attr('label').replace(/\W+/g, '_');
-	
+
 					// Show only relevant interface components based on context
 					area[(area.hasClass(value) || area.hasClass(group)) ^ area.hasClass('inverse') ? 'removeClass' : 'addClass']('irrelevant');
 				});
 			});
-	
+
 			// Trigger the parameter name being remembered when the Datasource context changes
 			contents.find('#ds-context')
-				.on('change.admin', function() {		
-					$('input[name="fields[name]"]').trigger('change');
+				.on('change.admin', function() {
+					$('input[name="fields[name]"]').trigger('change.admin');
 				})
 				.trigger('change.admin');
-	
+
 			// Once pagination is disabled, maxRecords and pageNumber are disabled too
 			contents.find('input[name*=paginate_results]').on('change.admin', function(event) {
-	
+
 				// Turn on pagination
 				if($(this).is(':checked')) {
 					maxRecord.attr('disabled', false);
 					pageNumber.attr('disabled', false);
 				}
-	
+
 				// Turn off pagination
 				else {
 					maxRecord.attr('disabled', true);
 					pageNumber.attr('disabled', true);
 				}
 			}).trigger('change.admin');
-	
+
 			// Disable paginate_results checking/unchecking when clicking on either maxRecords or pageNumber
 			maxRecord.add(pageNumber).on('click.admin', function(event) {
 				event.preventDefault();
 			});
-	
+
 			// Enabled fields on submit
 			form.on('submit.admin', function() {
 				maxRecord.attr('disabled', false);

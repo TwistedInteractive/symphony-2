@@ -32,6 +32,9 @@ class Index
 	// Reference the cachable:
 	private $_cache;
 
+	// If the index is dirty (difference between XML files and cached index)
+	private $_dirty;
+
 	/**
 	 * Get the index
 	 *
@@ -76,7 +79,8 @@ class Index
 				{
 					$this->_path = WORKSPACE.'/sections/*.xml';
 					$this->_element_name = 'sections';
-					$this->reIndex();
+					// Sections are overwritten with $overwrite set to false, to make use of the dirty-flag.
+					$this->reIndex(false);
 				}
 		}
 	}
@@ -216,20 +220,24 @@ class Index
 	 * Setup the index. The index is a SimpleXMLElement which stores all information about all
 	 * items. Therefore, the setup only needs to be loaded once, and not for each request.
 	 *
+	 * @param $overwrite bool
+	 *  Automatically overwrite the index. If this is false, the cached index is used, instead of
+	 *  the index built of the separate XML files.
+	 *
 	 * @return bool
 	 *  true if a new index is built, false if the index from the cache is loaded
 	 */
-	public function reIndex()
+	public function reIndex($overwrite = true)
 	{
 		// Load the pages:
-		$_pages = glob($this->_path);
+		$_files = glob($this->_path);
 
 		// Build an array of md5-hashes, to check with the cached version:
 		// This is done to detect if the XML-files in the folder have been changed.
 		$_md5 = array();
-		foreach($_pages as $_page)
+		foreach($_files as $_file)
 		{
-			$_md5[] = md5_file($_page);
+			$_md5[] = md5_file($_file);
 		}
 		$_md5_hash = md5(implode(',', $_md5));
 
@@ -241,23 +249,32 @@ class Index
 			// Load the cached XML:
 			$this->_index = new SimpleXMLElement($_data['data']);
 			// Check the MD5:
-			if($this->_index['md5'] != $_md5_hash)
+			if((string)$this->_index['md5'] == $_md5_hash)
 			{
-				$_buildIndex = true;
+				$_buildIndex = false;
 			}
 		}
 
+		// Set the dirty flag:
+		if($_buildIndex) {
+			$this->_dirty = true;
+		} else {
+			$this->_dirty = false;
+		}
+
 		// Check if an index needs to be built:
-		if($_buildIndex)
+		if($_buildIndex && $overwrite)
 		{
 			$this->_index = new SimpleXMLElement('<'.$this->_element_name.'/>');
 			$this->_index->addAttribute('md5', $_md5_hash);
-			foreach($_pages as $_page)
+			foreach($_files as $_file)
 			{
-				$this->mergeXML($this->_index, simplexml_load_file($_page));
+				$this->mergeXML($this->_index, simplexml_load_file($_file));
 			}
 			// Cache it:
 			$this->_cache->write('index:'.$this->_element_name, $this->_index->saveXML());
+			// Not dirty anymore:
+			$this->_dirty = false;
 		}
 
 		/**
@@ -301,13 +318,30 @@ class Index
     }
 
 	/**
-	 * Return the raw index
+	 * Return the cached index
 	 *
 	 * @return SimpleXMLElement
 	 */
 	public function getIndex()
 	{
 		return $this->_index;
+	}
+
+
+	/**
+	 * Return the local, non-cached index
+	 *
+	 * @return SimpleXMLElement
+	 */
+	public function getLocalIndex()
+	{
+		$index = new SimpleXMLElement('<'.$this->_element_name.'/>');
+		$_files = glob($this->_path);
+		foreach($_files as $_file)
+		{
+			$this->mergeXML(&$index, simplexml_load_file($_file));
+		}
+		return $index;
 	}
 
 	/**
@@ -391,5 +425,16 @@ class Index
 
 		// Return the XML string:
 		return $dom->saveXML();
+	}
+
+	/**
+	 * Checks whether the index is dirty. If the index is dirty, this means that the XML
+	 * files differ from the cached XML and the cached XML is used.
+	 *
+	 * @return bool
+	 */
+	public function isDirty()
+	{
+		return $this->_dirty;
 	}
 }

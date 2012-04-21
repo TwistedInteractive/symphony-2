@@ -831,4 +831,337 @@
 		public function __actionEdit(){
 			return $this->__actionNew();
 		}
+
+		/**
+		 * This screen shows the differences between the cached index and the local index
+		 * and offers the options to accept the changes or reject the changes.
+		 */
+		public function __viewDiff(){
+			// Check if accept or reject is clicked:
+			$context = $this->getContext();
+			if(isset($context[1]))
+			{
+				switch($context[1])
+				{
+					case 'accept' :
+						{
+							$this->__acceptDiff();
+							/* Todo: Show the notice after the redirect: */
+							Administration::instance()->Page->pageAlert(__('Sections modifications are successfully accepted.'), Alert::SUCCESS);
+							redirect(SYMPHONY_URL.'/blueprints/sections/');
+							break;
+						}
+					case 'reject' :
+						{
+							$this->__rejectDiff();
+							/* Todo: Show the notice after the redirect: */
+							Administration::instance()->Page->pageAlert(__('Sections modifications are successfully rejected.'), Alert::SUCCESS);
+							redirect(SYMPHONY_URL.'/blueprints/sections/');
+							break;
+						}
+					default:
+						{
+							// Invalid URL, redirect to diff screen:
+							redirect(SYMPHONY_URL.'/blueprints/sections/diff/');
+							break;
+						}
+				}
+			}
+
+			$this->setTitle(__('%1$s &ndash; %2$s', array(__('Section Differences'), __('Symphony'))));
+			$this->addStylesheetToHead(SYMPHONY_URL.'/assets/css/symphony.diff.css');
+
+			// Create the head:
+			$tableHead = Widget::TableHead(array(
+				array(__('Section')),
+				array(__('Changes')),
+			));
+
+			// Get the indexes:
+			$cachedIndex = SectionManager::index()->getIndex();
+			$localIndex  = SectionManager::index()->getLocalIndex();
+
+			$tableRows = array();
+
+			// Array to keep track of the sections that are already found:
+			$foundSections = array();
+
+			// Flag if an error is found (and changes cannot be accepted):
+			$error = false;
+
+			// Keep track of which field types are available:
+			$availableFieldTypes = FieldManager::listAll();
+
+			// Check the cached sections:
+			foreach($cachedIndex->xpath('section') as $cachedSection)
+			{
+				$rowClass = null;
+
+				// Check the differences:
+				$localSection = $localIndex->xpath(
+					sprintf('section[unique_hash=\'%s\']', (string)$cachedSection->unique_hash)
+				);
+				if(count($localSection) == 1)
+				{
+					$localSection = $localSection[0];
+					// Section found in local index, check for differences:
+					$cachedRow = new XMLElement('td', (string)$cachedSection->name);
+					// Check if the parsed XML is identical:
+					if($cachedSection->saveXML() == $localSection->saveXML())
+					{
+						$localRow = new XMLElement('td', __('No changes found.'));
+						$rowClass = 'no-changes';
+					} else {
+						$localRow = new XMLElement('td', __('Section is modified:'));
+						// Show changes:
+						$changes = new XMLElement('ul');
+						foreach($cachedSection->children() as $cachedElement)
+						{
+							// Iterate through each element to detect changes:
+							$name = $cachedElement->getName();
+							if($name != 'fields')
+							{
+								// See if this element exists in the local section:
+								$localElements = $localSection->xpath($name);
+								if(count($localElements) == 1)
+								{
+									// Local element found, check if there are differences:
+									$localElement = $localElements[0];
+									if($cachedElement->saveXML() != $localElement->saveXML())
+									{
+										// Not identical:
+										$changes->appendChild(
+											new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> : %s → %s'), $name,
+												(string)$cachedElement,
+												(string)$localElement
+											))
+										);
+									}
+								} else {
+									// Local element not found: throw error, since this is not correct:
+									$changes->appendChild(
+										new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> not found. Changes cannot be accepted.'), $name))
+									);
+									$error = true;
+									$rowClass = 'error';
+								}
+							} else {
+								// This is the fields-node:
+								$foundFields  = array();
+								$cachedFields = $cachedSection->xpath('fields/field');
+								foreach($cachedFields as $cachedField)
+								{
+									// Check to see if the field exists locally:
+									$localFields = $localSection->xpath(
+										sprintf('fields/field[unique_hash=\'%s\']', (string)$cachedField->unique_hash)
+									);
+									if(count($localFields) == 1)
+									{
+										// Field found, check for differences:
+										$localField = $localFields[0];
+										if($cachedField->saveXML() != $localField->saveXML())
+										{
+											// Field is changed:
+											$li = new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> is changed:'), (string)$cachedField->label));
+											$ul = new XMLElement('ul');
+											// Iterate through the elements:
+											foreach($cachedField->children() as $cachedFieldElement)
+											{
+												// Check if this element exists in the local field:
+												$cachedFieldElementName = $cachedFieldElement->getName();
+												$localFieldElements = $localField->xpath($cachedFieldElementName);
+												if(count($localFieldElements) == 1)
+												{
+													// Field element found, check for differences:
+													$localFieldElement = $localFieldElements[0];
+													if($localFieldElement->saveXML() != $cachedFieldElement->saveXML())
+													{
+														// Difference found:
+														$typeError = false;
+														// Check if the difference is the type of the field:
+														if($cachedFieldElementName == 'type')
+														{
+															// Check if this type exists in the current Symphony installation:
+															if(!in_array((string)$localFieldElement, $availableFieldTypes))
+															{
+																$ul->appendChild(
+																	new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> has an invalid type. Install the field type first :  <em>\'%s\'</em>'),
+																		$cachedFieldElementName,
+																		(string)$localFieldElement))
+																);
+																$error = true;
+																$typeError = true;
+																$rowClass = 'error';
+															}
+														}
+														if(!$typeError)
+														{
+															// Show the difference:
+															$ul->appendChild(
+																new XMLElement('li', sprintf(__('Field element <em>\'%s\'</em> :  %s → %s'),
+																	$cachedFieldElementName,
+																	(string)$cachedFieldElement,
+																	(string)$localFieldElement))
+															);
+														}
+													}
+												} else {
+													// Field element not found: throw error, since this is not correct:
+													$ul->appendChild(
+														new XMLElement('li', sprintf(__('Field element <em>\'%s\'</em> not found. Changes cannot be accepted.'),
+															$cachedFieldElementName))
+													);
+													$error = true;
+													$rowClass = 'error';
+												}
+											}
+											$li->appendChild($ul);
+											$changes->appendChild($li);
+										}
+									} else {
+										// Local field not found, this field is going to be deleted:
+										$changes->appendChild(
+											new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> (including it\'s data) is going to be deleted.'),
+												(string)$cachedField->label))
+										);
+										$rowClass = 'alert';
+									}
+									$foundFields[] = (string)$cachedField->unique_hash;
+								}
+
+								// Check the local fields (to see if there are fields added):
+								foreach($localSection->xpath('fields/field') as $localField)
+								{
+									if(!in_array((string)$localField->unique_hash, $foundFields))
+									{
+										// Check if this fields type is available in this Symphony installation:
+										if(!in_array((string)$localField->type, $availableFieldTypes))
+										{
+											$changes->appendChild(
+												new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> cannot be installed for this section. Install the field type first :  <em>\'%s\'</em>'),
+													(string)$localField->label,
+													(string)$localField->type))
+											);
+											$error = true;
+											$rowClass = 'error';
+										} else {
+											$changes->appendChild(
+												new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> is new and will be added to the section.'),
+													(string)$localField->label))
+											);
+											// $rowClass = 'notice';
+										}
+									}
+								}
+							}
+						}
+						$localRow->appendChild($changes);
+					}
+				} else {
+					// Section not found in local index, section is going to be deleted:
+					$cachedRow = new XMLElement('td', (string)$cachedSection->name);
+					$localRow  = new XMLElement('td', __('The section is not found in the local index. This sections is going to be deleted'));
+					$rowClass = 'alert';
+				}
+				$foundSections[] = (string)$cachedSection->unique_hash;
+
+				$tableRows[] = Widget::TableRow(array($cachedRow, $localRow), $rowClass);
+			}
+
+			// Check the local sections (to see if there are sections added):
+			foreach($localIndex->xpath('section') as $localSection)
+			{
+				$rowClass = null;
+				if(!in_array((string)$localSection->unique_hash, $foundSections))
+				{
+					$cachedRow = new XMLElement('td', (string)$localSection->name);
+
+					// Check if the field types used by this sections are available in this Symphony installation:
+					$ok = true;
+					$notFoundFields = new XMLElement('ul');
+					foreach($localSection->xpath('fields/field') as $localField)
+					{
+						if(!in_array((string)$localField->type, $availableFieldTypes))
+						{
+							$ok = false;
+							$notFoundFields->appendChild(
+								new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> cannot be installed for this section. Install the field type first :  <em>\'%s\'</em>'),
+									(string)$localField->label,
+									(string)$localField->type))
+							);
+							$error = true;
+							$rowClass = 'error';
+						}
+					}
+					if($ok)
+					{
+						$localRow = new XMLElement('td', __('This section is new and will be created.'));
+						// $rowClass = 'notice';
+					} else {
+						$localRow = new XMLElement('td', __('This section cannot be added because of the following problems:'));
+						$localRow->appendChild($notFoundFields);
+					}
+					$tableRows[] = Widget::TableRow(array($cachedRow, $localRow), $rowClass);
+				}
+			}
+
+			$tableBody = Widget::TableBody($tableRows);
+
+			$table = Widget::Table($tableHead, null, $tableBody, 'diff');
+
+			if(!$error)
+			{
+				$list = new XMLElement('ul', null, array('class'=>'actions'));
+				$list->appendChild(new XMLElement('li', Widget::Anchor(__('Accept Changes'), SYMPHONY_URL.'/blueprints/sections/diff/accept/', __('Accept Changes'), 'create button', NULL, array('accesskey' => 'a'))));
+				$list->appendChild(new XMLElement('li', Widget::Anchor(__('Reject Changes'), SYMPHONY_URL.'/blueprints/sections/diff/reject/', __('Reject Changes'), 'button', NULL, array('accesskey' => 'r'))));
+				// $this->appendSubheading(__('Section Differences'), Widget::Anchor(__('Accept Changes'), Administration::instance()->getCurrentPageURL().'accept/', __('Accept Changes'), 'create button', NULL, array('accesskey' => 'a')));
+				$this->appendSubheading(__('Section Differences'));
+				$this->Context->appendChild($list);
+			} else {
+				$this->Contents->appendChild(new XMLElement('p', __('The changes cannot be accepted for one ore more reasons. Please see the report below to find out what\'s wrong:'), array('class'=>'diff-notice')));
+				$this->appendSubheading(__('Section Differences'), Widget::Anchor(__('Reject Changes'), SYMPHONY_URL.'/blueprints/sections/diff/reject/', __('Reject Changes'), 'button', NULL, array('accesskey' => 'r')));
+			}
+			$this->Contents->appendChild($table);
+		}
+
+		/**
+		 * Function to accept the diff. Use the local XML files to edit the sections
+		 */
+		private function __acceptDiff()
+		{
+			// Iterate through the local section XML files:
+			
+
+			// Install and/or edit the sections:
+
+			// Clear the cache and reIndex:
+
+		}
+
+		/**
+		 * Reject the diff. Use the cached XML tree to re-generate the section XML files.
+		 */
+		private function __rejectDiff()
+		{
+			// Delete all local section XML files:
+			$files = glob(WORKSPACE.'/sections/*.xml');
+			foreach($files as $file)
+			{
+				General::deleteFile($file);
+			}
+
+			// Store the cached sections as new XML files:
+			$index = SectionManager::index()->getIndex();
+			foreach($index->children() as $section)
+			{
+				// Save the section, without reIndexing. We'll reIndex manually after saving all the sections:
+				SectionManager::saveSection(
+					SectionManager::lookup()->getId((string)$section->unique_hash), false
+				);
+			}
+
+			// Clear the cache and reIndex:
+			SectionManager::index()->reIndex();
+		}
+
 	}

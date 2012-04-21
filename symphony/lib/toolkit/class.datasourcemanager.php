@@ -111,6 +111,11 @@
 
 						if(method_exists($classname,'getSource')) {
 							$type = call_user_func(array($classname, 'getSource'));
+							// Check if type is a section. If so, set type to the section ID:
+							if(substr($type, 0, 8)=='section:')
+							{
+								$type = SectionManager::lookup()->getId(str_replace('section:', '', $type));
+							}
 						}
 
 						$about['can_parse'] = $can_parse;

@@ -164,10 +164,6 @@
 			// Save the XML:
 			self::__saveXMLFile(General::createHandle($fields['name']), $dom->saveXML());
 
-			// Re-index:
-			// Todo: optimize the code with a save-function at the end?
-			self::index()->reIndex();
-
 			return $fields['unique_hash'];
 		}
 
@@ -181,11 +177,18 @@
 		 * @return bool
 		 *  true on success, false on failure
 		 */
-		public static function __saveXMLFile($handle, $xml)
+		public static function __saveXMLFile($handle, $xml, $reIndex = true)
 		{
-			return General::writeFile(WORKSPACE.'/sections/'.$handle.'.xml', $xml,
+			$ok = General::writeFile(WORKSPACE.'/sections/'.$handle.'.xml', $xml,
 				Symphony::Configuration()->get('write_mode', 'file')
 			);
+			if($reIndex)
+			{
+				// Re-index (since the XML files are changed):
+				// Todo: optimize the code with a save-function at the end?
+				self::index()->reIndex();
+			}
+			return $ok;
 		}
 
 		/**
@@ -193,18 +196,36 @@
 		 *
 		 * @param $section_id
 		 *  The ID of the section
+		 * @param $reIndex
+		 *  Is a reIndex required?
 		 * @return bool
 		 *  true on success, false on failure
 		 */
-		public function saveSection($section_id)
+		public static function saveSection($section_id, $reIndex = true)
 		{
 			$hash   = self::lookup()->getHash($section_id);
 			$handle = self::index()->xpath(
 				sprintf('section[unique_hash=\'%s\']/name/@handle', $hash), true
 			);
 			return self::__saveXMLFile($handle,
-				self::index()->getFormattedXML(sprintf('section[unique_hash=\'%s\']', $hash))
+				self::index()->getFormattedXML(sprintf('section[unique_hash=\'%s\']', $hash)), $reIndex
 			);
+		}
+
+		/**
+		 * This function checks if sections are added, edited or deleted outside Symphony
+		 */
+		public static function checkIndex()
+		{
+			if(self::index()->isDirty())
+			{
+				// The index is dirty. Show a message to go to the diff page.
+				Administration::instance()->Page->pageAlert(
+					sprintf(__('One or more sections are modified outside of Symphony. <a href="%s">Show differences</a>'),
+					SYMPHONY_URL.'/blueprints/sections/diff/'),
+					Alert::ERROR
+				);
+			}
 		}
 
 		/**

@@ -339,13 +339,17 @@
 
 			include_once(TOOLKIT . '/class.entrymanager.php');
 
-			if(!$section = SectionManager::fetch((int)$this->getSource())){
+			$hash = str_replace('section:', '', $this->getSource());
+			$id   = SectionManager::lookup()->getId($hash);
+
+			if(!$section = SectionManager::fetch($id)){
 				$about = $this->about();
 				trigger_error(__('The section associated with the data source %s could not be found.', array('<code>' . $about['name'] . '</code>')), E_USER_ERROR);
 			}
 
 			$sectioninfo = new XMLElement('section', General::sanitize($section->get('name')), array(
 				'id' => $section->get('id'),
+				'hash' => $hash,
 				'handle' => $section->get('handle')
 			));
 
@@ -385,7 +389,7 @@
 			}
 			else {
 				EntryManager::setFetchSorting(
-					FieldManager::fetchFieldIDFromElementName($this->dsParamSORT, $this->getSource()),
+					FieldManager::fetchFieldIDFromElementName($this->dsParamSORT, $id),
 					$this->dsParamORDER
 				);
 			}
@@ -402,7 +406,7 @@
 
 			$entries = EntryManager::fetchByPage(
 				($this->dsParamPAGINATERESULTS == 'yes' && $this->dsParamSTARTPAGE > 0 ? $this->dsParamSTARTPAGE : 1),
-				$this->getSource(),
+				$id,
 				($this->dsParamPAGINATERESULTS == 'yes' && $this->dsParamLIMIT >= 0 ? $this->dsParamLIMIT : NULL),
 				$where, $joins, $group,
 				(!$include_pagination_element ? true : false),

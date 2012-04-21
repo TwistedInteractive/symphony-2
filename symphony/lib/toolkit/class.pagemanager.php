@@ -135,7 +135,7 @@
          * This function checks if there are new pages added manually, or if there are pages deleted manually.
          * If so, an entry in the lookup table needs to be added or deleted:
          */
-        public static function checkLookups()
+        public static function checkIndex()
         {
             // First, check if there are duplicate unique hashes. This is ofcourse not done!
             if($_hash = self::index()->hasDuplicateHashes())

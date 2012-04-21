@@ -167,6 +167,7 @@
 							break;
 
 						default:
+							// Section:
 							$fields['filter'][$fields['source']] = $existing->dsParamFILTERS;
 							$fields['max_records'] = $existing->dsParamLIMIT;
 							break;
@@ -254,7 +255,8 @@
 			// Add Sections
 			if(is_array($sections) && !empty($sections)){
 				array_unshift($options, array('label' => __('Sections'), 'options' => array()));
-				foreach($sections as $s) $options[0]['options'][] = array($s->get('id'), ($fields['source'] == $s->get('id')), General::sanitize($s->get('name')));
+				$section_id = SectionManager::lookup()->getId(str_replace('section:', '', $fields['source']));
+				foreach($sections as $s) $options[0]['options'][] = array($s->get('id'), ($section_id == $s->get('id')), General::sanitize($s->get('name')));
 			}
 
 			$label->appendChild(Widget::Select('fields[source]', $options, array('id' => 'ds-context')));
@@ -685,7 +687,9 @@
 							foreach($elements as $name){
 								$selected = false;
 
-								if($fields['source'] == $section_data['section']->get('id') && in_array($name, $fields['xml_elements'])){
+								$section_id = SectionManager::lookup()->getId(str_replace('section:', '', $fields['source']));
+
+								if($section_id == $section_data['section']->get('id') && in_array($name, $fields['xml_elements'])){
 									$selected = true;
 								}
 
@@ -1246,7 +1250,7 @@
 					}
 					
 					$dsShell = str_replace('<!-- CLASS EXTENDS -->', $extends, $dsShell);
-					$dsShell = str_replace('<!-- SOURCE -->', $source, $dsShell);
+					$dsShell = str_replace('<!-- SOURCE -->', 'section:'.SectionManager::lookup()->getHash($source), $dsShell);
 				}
 
 				if($this->_context[0] == 'new') {
