@@ -152,6 +152,7 @@ class Index
 		if($xpath != null)
 		{
 			$array = $this->xpath($xpath);
+			if($array == false) { $array = array(); }
 		} else {
 			foreach($this->_index->children() as $_item)
 			{
@@ -256,14 +257,15 @@ class Index
 				$this->_dirty = false;
 			}
 		} else {
-			// No cached data found, create an empty index:
-			$this->_index = new SimpleXMLElement('<'.$this->_element_name.'/>');
+			// No cached data found, create a new index:
+			$overwrite = true;
+/*			$this->_index = new SimpleXMLElement('<'.$this->_element_name.'/>');
 			$this->_index->addAttribute('md5', $_md5_hash);
 			if(!$overwrite)
 			{
 				// Set dirty to false, otherwise you would get a notification about changes:
 				$this->_dirty = false;
-			}
+			}*/
 		}
 
 		// Check if an index needs to be built:
