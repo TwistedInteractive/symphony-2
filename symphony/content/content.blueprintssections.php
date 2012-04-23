@@ -1018,6 +1018,16 @@
 											$li->appendChild($ul);
 											$changes->appendChild($li);
 										}
+									} elseif(count($localFields) > 1) {
+										// Fields with duplicate hashes found, this is not allowed:
+										$changes->appendChild(
+											new XMLElement('li', sprintf(__('Duplicate hash found for field <em>\'%s\'</em> (%s). Changes cannot be accepted.'),
+												(string)$cachedField->label,
+												(string)$cachedField->unique_hash
+											))
+										);
+										$error = true;
+										$rowClass = 'error';
 									} else {
 										// Local field not found, this field is going to be deleted:
 										$changes->appendChild(
@@ -1045,11 +1055,23 @@
 											$error = true;
 											$rowClass = 'error';
 										} else {
-											$changes->appendChild(
-												new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> is new and will be added to the section.'),
-													(string)$localField->label))
-											);
-											// $rowClass = 'notice';
+											// Check if this section doesn't already have a field with this handle:
+											if(count($cachedSection->xpath(sprintf('fields/field[label=\'%s\']', (string)$localField->label))) == 0)
+											{
+												$changes->appendChild(
+													new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> is new and will be added to the section.'),
+														(string)$localField->label))
+												);
+												// $rowClass = 'notice';
+											} else {
+												// There already exists a field with this handle:
+												$changes->appendChild(
+													new XMLElement('li', sprintf(__('This section already has a field with element name <em>\'%s\'</em>.'),
+														(string)$localField->element_name))
+												);
+												$error = true;
+												$rowClass = 'error';
+											}
 										}
 									}
 								}
@@ -1057,6 +1079,12 @@
 						}
 						$localRow->appendChild($changes);
 					}
+				} elseif(count($localSection) > 1) {
+					// Section with duplicate hashes found. This is not allowed:
+					$cachedRow = new XMLElement('td', (string)$cachedSection->name);
+					$localRow  = new XMLElement('td', __('Duplicate hash found for this section.'));
+					$error = true;
+					$rowClass = 'error';
 				} else {
 					// Section not found in local index, section is going to be deleted:
 					$cachedRow = new XMLElement('td', (string)$cachedSection->name);
@@ -1075,16 +1103,16 @@
 				if(!in_array((string)$localSection->unique_hash, $foundSections))
 				{
 					$cachedRow = new XMLElement('td', (string)$localSection->name);
-
 					// Check if the field types used by this sections are available in this Symphony installation:
 					$ok = true;
-					$notFoundFields = new XMLElement('ul');
+					$fieldErrors = new XMLElement('ul');
 					foreach($localSection->xpath('fields/field') as $localField)
 					{
+						// Check if the field is available:
 						if(!in_array((string)$localField->type, $availableFieldTypes))
 						{
 							$ok = false;
-							$notFoundFields->appendChild(
+							$fieldErrors->appendChild(
 								new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> cannot be installed for this section. Install the field type first :  <em>\'%s\'</em>'),
 									(string)$localField->label,
 									(string)$localField->type))
@@ -1092,14 +1120,89 @@
 							$error = true;
 							$rowClass = 'error';
 						}
+						// Check if the field hashes are unique:
+						if(count($cachedIndex->xpath(sprintf('section/fields/field[unique_hash=\'%s\']', (string)$localField->unique_hash))) > 0)
+						{
+							$ok = false;
+							$fieldErrors->appendChild(
+								new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> does not have a unique hash.'),
+									(string)$localField->label))
+							);
+							$error = true;
+							$rowClass = 'error';
+						}
+						// Check if there are no duplicate fields in this section:
+						if(count($localSection->xpath(sprintf('fields/field[element_name=\'%s\']', (string)$localField->element_name))) > 1)
+						{
+							$ok = false;
+							$fieldErrors->appendChild(
+								new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> occurs more than once.'),
+									(string)$localField->label))
+							);
+							$error = true;
+							$rowClass = 'error';
+						}
 					}
+					if(!$ok)
+					{
+						$localRow = new XMLElement('td', __('This section cannot be added because of the following problems:'));
+						$localRow->appendChild($fieldErrors);
+					}
+
+					// Check if the hash of the section is unique:
+					if(count($cachedIndex->xpath(sprintf('section[unique_hash=\'%s\']', (string)$localSection->unique_hash))) > 0)
+					{
+						$ok = false;
+						$error = true;
+						$localRow = new XMLElement('td', __('Duplicate hash found for this section.'));
+						$rowClass = 'error';
+					}
+
+					// Check if the section name is unique:
+					if(count($cachedIndex->xpath(sprintf('section[name=\'%s\']', (string)$localSection->name))) > 0)
+					{
+						$ok = false;
+						$error = true;
+						$localRow = new XMLElement('td', __('There already exists a section with this name.'));
+						$rowClass = 'error';
+					}
+
+					// Check if the sections' handle matches it's name:
+					if((string)$localSection->name['handle'] != General::createHandle((string)$localSection->name))
+					{
+						$ok = false;
+						$error = true;
+						$localRow = new XMLElement('td', sprintf(__('Invalid handle. The handle must be <em>\'%s\'</em>.'),
+							General::createHandle((string)$localSection->name)));
+						$rowClass = 'error';
+					}
+
+					// Check if the sections XML file matches it's handle:
+					if(!file_exists(WORKSPACE.'/sections/'.General::createHandle((string)$localSection->name).'.xml'))
+					{
+						$ok = false;
+						$error = true;
+						$localRow = new XMLElement('td', sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>.'),
+							General::createHandle((string)$localSection->name)));
+						$rowClass = 'error';
+					} else {
+						// Extra check to make sure that this is the correct XML-file (since we are working with the
+						// index, we don't know the filename by hand:
+						$xml = simplexml_load_file(WORKSPACE.'/sections/'.General::createHandle((string)$localSection->name).'.xml');
+						if((string)$xml->unique_hash != (string)$localSection->unique_hash)
+						{
+							$ok = false;
+							$error = true;
+							$localRow = new XMLElement('td', sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>.'),
+								General::createHandle((string)$localSection->name)));
+							$rowClass = 'error';
+						}
+					}
+
 					if($ok)
 					{
 						$localRow = new XMLElement('td', __('This section is new and will be created.'));
 						// $rowClass = 'notice';
-					} else {
-						$localRow = new XMLElement('td', __('This section cannot be added because of the following problems:'));
-						$localRow->appendChild($notFoundFields);
 					}
 					$tableRows[] = Widget::TableRow(array($cachedRow, $localRow), $rowClass);
 				}
