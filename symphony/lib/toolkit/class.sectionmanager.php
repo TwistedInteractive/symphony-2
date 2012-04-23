@@ -53,19 +53,10 @@
 		 *  The newly created Section's ID
 		 */
 		public static function add(array $settings){
-/*			print_r($settings);
-			die();*/
-
 			$hash = self::__generateSectionXML($settings);
 
 			$id   = self::lookup()->save($hash);
 			return $id;
-
-			// unset($settings['fields']);
-			// if(!Symphony::Database()->insert($settings, 'tbl_sections')) return false;
-
-
-			// return Symphony::Database()->getInsertID();
 		}
 
 		/**
@@ -87,57 +78,6 @@
 
 			// Generate fields XML:
 			$fields_str = '';
-			/*
-			if(!empty($fields['fields']))
-			{
-				$sortorder = 1;
-				foreach($fields['fields'] as $field)
-				{
-					// Generate a unique hash for this field:
-					if(!isset($field['unique_hash']))
-					{
-						$field['unique_hash'] = md5('field.'.$field['label'].time());
-					}
-
-					// Store the configuration fields:
-					$configuration = '';
-					// Get the available configuration fields from the field itself:
-					$configuration_fields = FieldManager::create($field['type'])->getConfiguration();
-					if(!empty($configuration_fields))
-					{
-						foreach($configuration_fields as $configuration_field)
-						{
-							$configuration .= '<'.$configuration_field.'>'.$field[$configuration_field].'</'.$configuration_field.'>';
-						}
-					}
-
-					$fields_str .= sprintf(
-						'<field>
-							<label element_name="%1$s">%2$s</label>
-							<unique_hash>%3$s</unique_hash>
-							<type>%4$s</type>
-							<required>%5$s</required>
-							<sortorder>%6$s</sortorder>
-							<location>%7$s</location>
-							<show_column>%8$s</show_column>
-							<configuration>%9$s</configuration>
-						</field>',
-						$field['element_name'],
-						$field['label'],
-						$field['unique_hash'],
-						$field['type'],
-						(isset($field['required']) ? $field['required'] : 'no'),
-						$sortorder,
-						$field['location'],
-						$field['show_column'],
-						$configuration
-					);
-					$sortorder++;
-				}
-			}
-*/
-
-
 			// Generate the main XML:
 			$dom = new DOMDocument();
 			$dom->preserveWhiteSpace = false;
@@ -271,56 +211,6 @@
 				self::index()->getFormattedXML(sprintf('section[unique_hash=\'%s\']', $hash))
 			);
 
-			// $section = self::fetchByXPath(sprintf('section[unique_hash=\'%s\']', $hash));
-/*			$section = self::index()->xpath(sprintf('section[unique_hash=\'%s\']', $hash));
-			$section = $section[0];*/
-
-			// Load the section data:
-/*			$_data = array(
-				'name' => 				(string)$section->name,
-				'sortorder' => 			(string)$section->sortorder,
-				'navigation_group' =>	(string)$section->navigation_group,
-				'hidden' =>				(string)$section->hidden
-			);*/
-
-			// Load the fields:
-/*			if(!empty($section->fields))
-			{
-				foreach($section->fields->children() as $field)
-				{
-					$fields = array(
-						'label' =>			(string)$field->label,
-						'element_name' =>	(string)$field->label['element_name'],
-						'unique_hash' => 	(string)$field->unique_hash,
-						'type' =>			(string)$field->type,
-						'required' =>		(string)$field->required,
-						'sortorder' =>		(string)$field->sortorder,
-						'location' =>		(string)$field->location,
-						'show_column' =>	(string)$field->yes
-					);
-					// Append the configuration fields:
-					if(!empty($field->configuration))
-					{
-						foreach($field->configuration->children() as $child)
-						{
-							$fields[$child->getName()] = (string)$child;
-						}
-					}
-					$_data['fields'][] = $fields;
-				}
-			}*/
-			// merge the arrays:
-/*			foreach($settings as $key => $value)
-			{
-				$_data[$key] = $value;
-			}*/
-
-
-			// self::__generateSectionXML($settings);
-
-/*			unset($settings['fields']);
-			if(!Symphony::Database()->update($settings, 'tbl_sections', " `id` = $section_id")) return false;*/
-
 			return true;
 		}
 
@@ -351,18 +241,25 @@
 				foreach($fields as $field) FieldManager::delete($field->get('id'));
 			}
 
-			// Delete the section lookup:
-			self::lookup()->delete($hash);
-
 			// Delete the section file:
 			unlink(WORKSPACE.'/sections/'.$section->get('handle').'.xml');
 
 			// Update the sort orders?
 			// Todo: is this necesarry?
 
-			// Delete the section associations?
-			// Todo: associations are going to be stored in the XML-files
+			// Delete the section associations:
+			$sections = self::index()->fetch(
+				sprintf('associations/association[parent_section=\'%s\']', $hash)
+			);
+			foreach($sections as $section)
+			{
+				self::index()->removeNode(sprintf('associations/association[parent_section=\'%s\']', (string)$section->unique_hash));
+				// Save the section:
+				self::saveSection(self::lookup()->getId((string)$section->unique_hash));
+			}
 
+			// Delete the section lookup:
+			self::lookup()->delete($hash);
 
 /*			$details = Symphony::Database()->fetchRow(0, "SELECT `sortorder` FROM tbl_sections WHERE `id` = '$section_id'");
 
@@ -481,51 +378,6 @@
 					trim(strtolower($order))
 				);
 			}
-
-/*			$returnSingle = false;
-			$section_ids = array();
-
-			if(!is_null($section_id)) {
-				if(!is_array($section_id)) {
-					$returnSingle = true;
-					$section_ids = array((int)$section_id);
-				}
-				else {
-					$section_ids = $section_id;
-				}
-			}
-
-			if($returnSingle && isset(self::$_pool[$section_id])){
-				return self::$_pool[$section_id];
-			}
-
-			$sql = sprintf("
-					SELECT `s`.*
-					FROM `tbl_sections` AS `s`
-					%s
-					%s
-				",
-				!empty($section_id) ? " WHERE `s`.`id` IN (" . implode(',', $section_ids) . ") " : "",
-				empty($section_id) ? " ORDER BY `s`.`$sortfield` $order" : ""
-			);
-
-			if(!$sections = Symphony::Database()->fetch($sql)) return ($returnSingle ? false : array());
-
-			$ret = array();
-
-			foreach($sections as $s){
-				$obj = self::create();
-
-				foreach($s as $name => $value){
-					$obj->set($name, $value);
-				}
-
-				self::$_pool[$obj->get('id')] = $obj;
-
-				$ret[] = $obj;
-			}
-
-			return (count($ret) == 1 && $returnSingle ? $ret[0] : $ret);*/
 		}
 
 		/**
@@ -539,8 +391,6 @@
 		public static function fetchIDFromHandle($handle){
 			return self::lookup()->getId(self::index()->xpath(
 				sprintf('section[name/@handle=\'%s\']/unique_hash', $handle), true));
-
-			// return Symphony::Database()->fetchVar('id', 0, "SELECT `id` FROM `tbl_sections` WHERE `handle` = '$handle' LIMIT 1");
 		}
 
 		/**
@@ -550,16 +400,7 @@
 		 *  Returns the next sort order
 		 */
 		public static function fetchNextSortOrder(){
-/*			$next = Symphony::Database()->fetchVar("next", 0, "
-				SELECT
-					MAX(p.sortorder) + 1 AS `next`
-				FROM
-					`tbl_sections` AS p
-				LIMIT 1
-			");*/
-
 			$next = self::index()->getMax('sortorder');
-
 			return ($next ? (int)$next : 1);
 		}
 
@@ -599,16 +440,6 @@
 				$parent_section_id = $parent_field->get('parent_section');
 			}
 
-/*			<associations>
-				<association>
-					<parent_field></parent_field>
-					<child_section></child_section>
-					<child_field></child_field>
-					<show_association></show_association>
-				</association>
-			</associations>*/
-
-
 			$child_field = FieldManager::fetch($child_field_id);
 			$child_section_id = $child_field->get('parent_section');
 
@@ -642,16 +473,6 @@
 
 			// Save the section:
 			return self::saveSection($parent_section_id);
-
-/*			$fields = array(
-				'parent_section_id' => $parent_section_id,
-				'parent_section_field_id' => $parent_field_id,
-				'child_section_id' => $child_section_id,
-				'child_section_field_id' => $child_field_id,
-				'hide_association' => ($show_association ? 'no' : 'yes')
-			);
-
-			return Symphony::Database()->insert($fields, 'tbl_sections_association');*/
 		}
 
 		/**
@@ -680,8 +501,6 @@
 			}
 
 			return true;
-
-			// return Symphony::Database()->delete('tbl_sections_association', sprintf(" `child_section_field_id` = %d ", $child_field_id));
 		}
 
 		/**
@@ -728,20 +547,6 @@
 			}
 
 			return $result;
-
-/*			return Symphony::Database()->fetch(sprintf("
-					SELECT *
-					FROM `tbl_sections_association` AS `sa`, `tbl_sections` AS `s`
-					WHERE `sa`.`parent_section_id` = %d
-					AND `s`.`id` = `sa`.`child_section_id`
-					%s
-					ORDER BY `s`.`sortorder` ASC
-				",
-				$section_id,
-				($respect_visibility) ? "AND `sa`.`hide_association` = 'no'" : ""
-			));*/
-
-
 		}
 
 	}
