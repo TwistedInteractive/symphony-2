@@ -261,9 +261,8 @@ class Index
 			$this->_index->addAttribute('md5', $_md5_hash);
 			if(!$overwrite)
 			{
-				// Empty index needs to be cached, otherwise you would get a notification about changed sections:
-				// $this->_cache->write('index:'.$this->_element_name, $this->_index->saveXML());
-				// $this->_dirty = false;
+				// Set dirty to false, otherwise you would get a notification about changes:
+				$this->_dirty = false;
 			}
 		}
 
@@ -344,7 +343,13 @@ class Index
 		$_files = glob($this->_path);
 		foreach($_files as $_file)
 		{
-			$this->mergeXML(&$index, simplexml_load_file($_file));
+			@$xml = simplexml_load_file($_file);
+			if($xml === false)
+			{
+				return false;
+			} else {
+				$this->mergeXML(&$index, $xml);
+			}
 		}
 		return $index;
 	}
