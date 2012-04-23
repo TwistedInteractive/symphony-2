@@ -402,10 +402,12 @@ class Index
 	public function removeNode($xpath)
 	{
 		$nodes = $this->xpath($xpath);
-		// $node = $node[0];
-		foreach ($nodes as $item) {
-		    $node = dom_import_simplexml($item);
-		    $node->parentNode->removeChild($node);
+		if($nodes != false)
+		{
+			foreach ($nodes as $item) {
+				$node = dom_import_simplexml($item);
+				$node->parentNode->removeChild($node);
+			}
 		}
 	}
 
