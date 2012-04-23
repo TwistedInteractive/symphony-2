@@ -245,11 +245,11 @@
 			unlink(WORKSPACE.'/sections/'.$section->get('handle').'.xml');
 
 			// Update the sort orders?
-			// Todo: is this necesarry?
+			// Todo: is this necessary?
 
 			// Delete the section associations:
 			$sections = self::index()->fetch(
-				sprintf('associations/association[parent_section=\'%s\']', $hash)
+				sprintf('section/associations/association[parent_section=\'%s\']', $hash)
 			);
 			foreach($sections as $section)
 			{
@@ -260,6 +260,9 @@
 
 			// Delete the section lookup:
 			self::lookup()->delete($hash);
+
+			// ReIndex:
+			self::index()->reIndex();
 
 /*			$details = Symphony::Database()->fetchRow(0, "SELECT `sortorder` FROM tbl_sections WHERE `id` = '$section_id'");
 
