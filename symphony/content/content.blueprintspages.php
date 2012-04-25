@@ -1524,6 +1524,122 @@
 		}
 
 		/**
+		 * Function to accept the diff. Use the local XML files to edit the pages
+		 */
+		private function __acceptDiff()
+		{
+			// Get the indexes:
+			$cachedIndex = PageManager::index()->getIndex();
+			$localIndex  = PageManager::index()->getLocalIndex();
+
+			// Array to keep track of the sections that are already found:
+			$foundPages = array();
+
+			// Check the cached sections:
+			foreach($cachedIndex->xpath('page') as $cachedPage)
+			{
+				// Check the differences:
+				$localPages = $localIndex->xpath(
+					sprintf('page[unique_hash=\'%s\']', (string)$cachedPage->unique_hash)
+				);
+				if(count($localPages) == 1)
+				{
+					// This page is found, edit it according to it's local page:
+					$localPage = $localPages[0];
+					$data = array();
+					/*
+				$fields['handle'],
+				$fields['title'],
+				$fields['path'],
+				$fields['params'],
+				$datasources,
+				$events,
+				$fields['sortorder'],
+				$fields['unique_hash'],
+			    $types,
+			    self::lookup()->getHash($fields['parent'])
+					 */
+					$this->__buildData($data, 'handle', (string)$localPage->title['handle']);
+					$this->__buildData($data, 'title', (string)$localPage->title['title']);
+					$this->__buildData($data, 'path', (string)$localPage->title['path']);
+					$this->__buildData($data, 'params', (string)$localPage->title['params']);
+					$this->__buildData($data, 'sortorder', (string)$localPage->title['sortorder']);
+					$this->__buildData($data, 'parent', (string)$localPage->title['parent']);
+
+					// todo: datasources
+
+					// todo: events
+
+					// todo: types
+
+					// todo: everything else :-P
+
+					print_r($data);
+					die();
+
+					PageManager::edit(
+						PageManager::lookup()->getId((string)$cachedPage->unique_hash), $data
+					);
+				} else {
+					// Section not found in local index, section is going to be deleted:
+					PageManager::delete(
+						PageManager::lookup()->getId((string)$cachedPage->unique_hash)
+					);
+				}
+				$foundPages[] = (string)$cachedPage->unique_hash;
+			}
+
+			// Check the local sections (to see if there are sections added):
+			foreach($localIndex->xpath('section') as $localSection)
+			{
+				if(!in_array((string)$localSection->unique_hash, $foundPages))
+				{
+					$sectionSettings = array(
+						'name' 				=> (string)$localSection->name,
+						'handle' 			=> (string)$localSection->name['handle'],
+						'sortorder' 		=> (string)$localSection->sortorder,
+						'hidden' 			=> (string)$localSection->hidden,
+						'navigation_group' 	=> (string)$localSection->navigation_group,
+						'unique_hash'		=> (string)$localSection->unique_hash
+					);
+					// This is a new section, add it:
+					SectionManager::add(
+						$sectionSettings
+					);
+					// Add the fields:
+					foreach($localSection->xpath('fields/field') as $localSectionField)
+					{
+						$fieldSettings = array(
+							'parent_section' => SectionManager::lookup()->getId(
+								(string)$localSection->unique_hash
+							)
+						);
+
+						// Add the fields:
+						foreach($localSectionField->children() as $localFieldElement)
+						{
+							$fieldSettings[$localFieldElement->getName()] = (string)$localFieldElement;
+						}
+
+						// Add (and thus saving) the field:
+						$id = FieldManager::add($fieldSettings);
+						// Create the data table of the field:
+						$field = FieldManager::fetch($id);
+						$field->createTable();
+					}
+				}
+			}
+		}
+
+		private function __buildData(&$data, $key, $value)
+		{
+			if(!empty($value))
+			{
+				$data[$key] = $value;
+			}
+		}
+
+		/**
 		 * Reject the diff. Use the cached XML tree to re-generate the page XML files.
 		 */
 		private function __rejectDiff()

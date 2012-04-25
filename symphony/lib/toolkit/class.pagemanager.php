@@ -114,7 +114,7 @@
 				$fields['sortorder'],
 				$fields['unique_hash'],
 			    $types,
-			    self::lookup()->getHash($fields['parent'])
+			    (is_numeric($fields['parent']) ? self::lookup()->getHash($fields['parent']) : $fields['parent'])
 			));
 
 			// Save the XML:
