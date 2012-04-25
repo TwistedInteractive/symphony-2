@@ -1215,12 +1215,93 @@
 										}
 									case 'datasources' :
 										{
-											// Todo
+											// Check if there are removed datasources:
+											$cachedDatasources = array();
+											foreach($cachedPage->xpath('datasources/datasource') as $cachedDatasource)
+											{
+												if(count($localPage->xpath(sprintf('datasources[datasource=\'%s\']', (string)$cachedDatasource))) == 0)
+												{
+													$changes->appendChild(
+														new XMLElement('li', sprintf(__('Datasource <em>\'%s\'</em> is going to be removed from this page.'),
+														(string)$cachedDatasource))
+													);
+												}
+												$cachedDatasources[] = (string)$cachedDatasource;
+											}
+											// Check if datasource exists:
+											$foundDatasources = array();
+											$files = glob(WORKSPACE.'/data-sources/data.*.php');
+											foreach($files as $file)
+											{
+												$info = pathinfo($file);
+												$foundDatasources[] = str_replace('data.', '', $info['filename']);
+											}
+											foreach($localPage->xpath('datasources/datasource') as $localDatasource)
+											{
+												if(!in_array((string)$localDatasource, $foundDatasources))
+												{
+													// The datasource is not found in the datasource folder:
+													$changes->appendChild(
+														new XMLElement('li', sprintf(__('Datasource <em>\'%s\'</em> not found. Changes cannot be accepted.'),
+														(string)$localDatasource))
+													);
+													$error = true;
+													$rowClass = 'error';
+
+													// Check if there are datasources to be added:
+												} elseif(!in_array((string)$localDatasource, $cachedDatasources)) {
+													$changes->appendChild(
+														new XMLElement('li', sprintf(__('Datasource <em>\'%s\'</em> is going to be added to this page.'),
+														(string)$localDatasource))
+													);
+												}
+
+											}
 											break;
 										}
 									case 'events' :
 										{
-											// Todo
+											// Check if there are removed datasources:
+											$cachedEvents = array();
+											foreach($cachedPage->xpath('events/event') as $cachedEvent)
+											{
+												if(count($localPage->xpath(sprintf('events[event=\'%s\']', (string)$cachedEvent))) == 0)
+												{
+													$changes->appendChild(
+														new XMLElement('li', sprintf(__('Event <em>\'%s\'</em> is going to be removed from this page.'),
+														(string)$cachedEvent))
+													);
+												}
+												$cachedEvents[] = (string)$cachedEvent;
+											}
+											// Check if datasource exists:
+											$foundEvents = array();
+											$files = glob(WORKSPACE.'/events/event.*.php');
+											foreach($files as $file)
+											{
+												$info = pathinfo($file);
+												$foundEvents[] = str_replace('event.', '', $info['filename']);
+											}
+											foreach($localPage->xpath('events/event') as $localEvent)
+											{
+												if(!in_array((string)$localEvent, $foundEvents))
+												{
+													// The datasource is not found in the datasource folder:
+													$changes->appendChild(
+														new XMLElement('li', sprintf(__('Event <em>\'%s\'</em> not found. Changes cannot be accepted.'),
+														(string)$localEvent))
+													);
+													$error = true;
+													$rowClass = 'error';
+
+													// Check if there are datasources to be added:
+												} elseif(!in_array((string)$localEvent, $cachedEvents)) {
+													$changes->appendChild(
+														new XMLElement('li', sprintf(__('Event <em>\'%s\'</em> is going to be added to this page.'),
+														(string)$localEvent))
+													);
+												}
+											}
 											break;
 										}
 									default:
@@ -1320,14 +1401,66 @@
 							$rowClass = 'error';
 						}
 
-						// Todo: check if datasources exist
+						// Check if datasources exist:
+						$pageErrors = new XMLElement('ul');
+						$pageErrorsFound = false;
+						$foundDatasources = array();
+						$files = glob(WORKSPACE.'/data-sources/data.*.php');
+						foreach($files as $file)
+						{
+							$info = pathinfo($file);
+							$foundDatasources[] = str_replace('data.', '', $info['filename']);
+						}
+						foreach($localPage->xpath('datasources/datasource') as $localDatasource)
+						{
+							if(!in_array((string)$localDatasource, $foundDatasources))
+							{
+								// The datasource is not found in the datasource folder:
+								$pageErrors->appendChild(
+									new XMLElement('li', sprintf(__('Datasource <em>\'%s\'</em> not found.'),
+									(string)$localDatasource))
+								);
+								$error = true;
+								$rowClass = 'error';
+								$pageErrorsFound = true;
+							}
+						}
 
-						// Todo: check if events exist
+						// Check if events exist:
+						$foundEvents = array();
+						$files = glob(WORKSPACE.'/events/event.*.php');
+						foreach($files as $file)
+						{
+							$info = pathinfo($file);
+							$foundDatasources[] = str_replace('event.', '', $info['filename']);
+						}
+						foreach($localPage->xpath('events/event') as $localEvent)
+						{
+							if(!in_array((string)$localEvent, $foundEvents))
+							{
+								// The datasource is not found in the datasource folder:
+								$pageErrors->appendChild(
+									new XMLElement('li', sprintf(__('Event <em>\'%s\'</em> not found.'),
+									(string)$localEvent))
+								);
+								$error = true;
+								$rowClass = 'error';
+								$pageErrorsFound = true;
+							}
+						}
+
+						// Add the errors to the list:
+						if($pageErrorsFound)
+						{
+							$ok = false;
+							$localRow = new XMLElement('td', __('This page cannot be added because of the following problems:'));
+							$localRow->appendChild($pageErrors);
+						}
 
 						// Check if the pages XML file and path matches it's handle:
 						if($ok)
 						{
-							$filename = str_replace('/', '_', $localPath).'_'.$localHandle;
+							$filename = !empty($localPath) ? str_replace('/', '_', $localPath).'_'.$localHandle : $localHandle;
 							if(!file_exists(WORKSPACE.'/pages/'.$filename.'.xml'))
 							{
 								$ok = false;
@@ -1400,18 +1533,22 @@
 			$files = glob(WORKSPACE.'/pages/*.xml');
 			foreach($files as $file)
 			{
-				// General::deleteFile($file);
+				General::deleteFile($file);
 			}
 
 			// Store the cached pages as new XML files:
 			$index = PageManager::index()->getIndex();
-			foreach($index->children() as $page)
+			foreach($index->children() as $cachedPage)
 			{
-				// Save the pages, without reIndexing. We'll reIndex manually after saving all the sections:
-/*				PageManager::saveSection(
-					SectionManager::lookup()->getId((string)$section->unique_hash), false
-				);*/
+				$xml = PageManager::index()->getFormattedXML(
+					sprintf('page[unique_hash=\'%s\']', (string)$cachedPage->unique_hash)
+				);
 
+				$cachedPath = (string)$cachedPage->path;
+				$cachedHandle = (string)$cachedPage->title['handle'];
+				$filename = empty($cachedPath) ? str_replace('/', '_', $cachedPath).'_'.$cachedHandle : $cachedHandle;
+
+				PageManager::writePageFiles(WORKSPACE.'/pages/'.$filename.'.xml', $xml);
 			}
 
 			// Clear the cache and reIndex:
