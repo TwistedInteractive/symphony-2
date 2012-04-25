@@ -6,7 +6,7 @@
 	/**
 	 * The `SectionManager` is responsible for managing all Sections in a Symphony
 	 * installation by exposing basic CRUD operations. Sections are stored in the
-	 * database in `tbl_sections`.
+	 * `workspace/sections`-folder.
 	 */
 	include_once(TOOLKIT . '/class.section.php');
 
@@ -42,13 +42,13 @@
 
 		/**
 		 * Takes an associative array of Section settings and creates a new
-		 * entry in the `tbl_sections` table, returning the ID of the Section.
+		 * Section XML file, returning the internal ID of the Section.
 		 * The ID of the section is generated using auto_increment and returned
 		 * as the Section ID.
 		 *
 		 * @param array $settings
 		 *  An associative of settings for a section with the key being
-		 *  a column name from `tbl_sections`
+		 *  an element name in the Section XML file.
 		 * @return integer
 		 *  The newly created Section's ID
 		 */
@@ -182,7 +182,7 @@
 		 *  The ID of the Section to edit
 		 * @param array $settings
 		 *  An associative of settings for a section with the key being
-		 *  a column name from `tbl_sections`
+		 *  an element in the Section XML file.
 		 * @return boolean
 		 */
 		public static function edit($section_id, array $settings){
@@ -334,7 +334,7 @@
 		 *  If `$section_id` is omitted, this is the sortorder of the returned
 		 *  objects. Defaults to ASC, other options id DESC
 		 * @param string $sortfield
-		 *  The name of the column in the `tbl_sections` table to sort
+		 *  The name of the element name in the Sections' XML File to sort
 		 *  on. Defaults to name
 		 * @return Section|array
 		 *  A Section object or an array of Section objects

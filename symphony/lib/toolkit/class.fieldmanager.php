@@ -278,7 +278,7 @@
 
 		/**
 		 * Given a Field ID and associative array of fields, update an existing Field
-		 * row in the `tbl_fields`table. Returns boolean for success/failure
+		 * XML in the corresponding Section XML file. Returns boolean for success/failure
 		 *
 		 * @param integer $id
 		 *  The ID of the Field that should be updated
@@ -289,7 +289,6 @@
 		 * @return boolean
 		 */
 		public static function edit($id, array $fields){
-			// if(!Symphony::Database()->update($fields, "tbl_fields", " `id` = '$id'")) return false;
 
 /*			$hash = self::lookup()->getHash($id);
 
@@ -387,8 +386,10 @@
 		 * @param string $order_direction (optional)
 		 *  The direction to order (`asc` or `desc`)
 		 *  Defaults to `asc`
-		 * @param int $restrict (optional)
-		 *  Set the restriction
+		 * @param integer $restrict
+		 *  Only return fields if they match one of the Field Constants. Available values are
+		 *  `__TOGGLEABLE_ONLY__`, `__UNTOGGLEABLE_ONLY__`, `__FILTERABLE_ONLY__`,
+		 *  `__UNFILTERABLE_ONLY__` or `__FIELD_ALL__`. Defaults to `__FIELD_ALL__`
 		 * @return array
 		 *  An array of Field objects. If no Field are found, null is returned.
 		 */
@@ -490,7 +491,7 @@
 		}
 
 		/**
-		 * The fetch method returns a instance of a Field from tbl_fields. The most common
+		 * The fetch method returns a instance of a Field from the corresponding Section XML file. The most common
 		 * use of this function is to retrieve a Field by ID, but it can be used to retrieve
 		 * Fields from a Section also. There are several parameters that can be used to fetch
 		 * fields by their Type, Location, by a Field Constant or with a custom WHERE query.
@@ -507,7 +508,7 @@
 		 *  Available values of ASC (Ascending) or DESC (Descending), which refer to the
 		 *  sort order for the query. Defaults to ASC (Ascending)
 		 * @param string $sortfield
-		 *  The field to sort the query by. Can be any from the tbl_fields schema. Defaults to
+		 *  The element name to sort the query by. Can be any from the XML schema. Defaults to
 		 *  'sortorder'
 		 * @param string $type
 		 *  Filter fields by their type, ie. input, select. Defaults to null
@@ -516,12 +517,13 @@
 		 *  'main' or 'sidebar'. Defaults to null
 		 * @param string $where
 		 *  Allows a custom where query to be included. Must be valid SQL. The tbl_fields alias
-		 *  is t1
-		 * @param string $restrict
+		 *  is t1. This parameter is currently not used anymore, since this function converts the
+		 *  request to a XPath query.
+		 * @param integer $restrict
 		 *  Only return fields if they match one of the Field Constants. Available values are
 		 *  `__TOGGLEABLE_ONLY__`, `__UNTOGGLEABLE_ONLY__`, `__FILTERABLE_ONLY__`,
 		 *  `__UNFILTERABLE_ONLY__` or `__FIELD_ALL__`. Defaults to `__FIELD_ALL__`
-		 * @return array
+		 * @return array|mixed
 		 *  An array of Field objects. If no Field are found, null is returned.
 		 */
 		public static function fetch($id = null, $section_id = null, $order = 'ASC', $sortfield = 'sortorder', $type = null, $location = null, $where = null, $restrict=Field::__FIELD_ALL__){
@@ -579,7 +581,7 @@
 		}
 
 		/**
-		 * Given a field ID, return the type of the field by querying `tbl_fields`
+		 * Given a field ID, return the type of the field.
 		 *
 		 * @param integer $id
 		 * @return string
@@ -590,7 +592,7 @@
 		}
 
 		/**
-		 * Given a field ID, return the handle of the field by querying `tbl_fields`
+		 * Given a field ID, return the handle of the field.
 		 *
 		 * @param integer $id
 		 * @return string
