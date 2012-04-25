@@ -263,7 +263,6 @@
 
 			$fields = array();
 
-			// $fields['field_id'] = $id;
 			if($this->get('static_options') != '') $fields['static_options'] = $this->get('static_options');
 
 			// store the hash:
@@ -272,11 +271,7 @@
 			$fields['sort_options'] = $this->get('sort_options') == 'yes' ? 'yes' : 'no';
 			$fields['show_association'] = $this->get('show_association') == 'yes' ? 'yes' : 'no';
 
-			if(!FieldManager::saveSettings($this->get('id'), $fields)) return false;
-
-/*			Symphony::Database()->query("DELETE FROM `tbl_fields_".$this->handle()."` WHERE `field_id` = '$id' LIMIT 1");
-
-			if(!Symphony::Database()->insert($fields, 'tbl_fields_' . $this->handle())) return false;*/
+			if(!FieldManager::saveSettings($id, $fields)) { return false; }
 
 			$this->removeSectionAssociation($id);
 

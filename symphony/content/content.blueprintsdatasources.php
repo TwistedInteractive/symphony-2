@@ -131,7 +131,7 @@
 				$provided = false;
 				if(!empty($providers)) {
 					foreach($providers as $providerClass => $provider) {
-						if($fields['source'] == $providerClass::getClass()) {
+						if($fields['source'] == call_user_func(array($providerClass, 'getClass'))) {
 							$fields = array_merge($fields, $existing->settings());
 							$provided = true;
 							break;
@@ -839,7 +839,7 @@
 		// creating a 'big' page and then hiding the fields with JS
 			if(!empty($providers)) {
 				foreach($providers as $providerClass => $provider) {
-					$providerClass::buildEditor($this->Form, $this->_errors, $fields, $handle);
+					call_user_func(array($providerClass, 'buildEditor'), $this->Form, &$this->_errors, $fields, $handle);
 				}
 			}
 
@@ -1052,8 +1052,8 @@
 			// See if a Provided Datasource is saved
 			elseif (!empty($providers)) {
 				foreach($providers as $providerClass => $provider) {
-					if($fields['source'] == $providerClass::getSource()) {
-						$providerClass::validate($fields, $this->_errors);
+					if($fields['source'] == call_user_func(array($providerClass, 'getSource'))) {
+						call_user_func(array($providerClass, 'validate'), &$fields, &$this->_errors);
 						break;
 					}
 					unset($providerClass);
@@ -1101,7 +1101,7 @@
 
 				// If there is a provider, get their template
 				if($providerClass) {
-					$dsShell = file_get_contents($providerClass::getTemplate());
+					$dsShell = file_get_contents(call_user_func(array($providerClass, 'getTemplate')));
 				}
 				else {
 					$dsShell = file_get_contents($this->getTemplate('blueprints.datasource'));
@@ -1116,7 +1116,7 @@
 
 				// If there is a provider, let them do the prepartion work
 				if($providerClass) {
-					$dsShell = $providerClass::prepare($fields, $params, $dsShell);
+					$dsShell = call_user_func(array($providerClass, 'prepare'), $fields, $params, $dsShell);
 				}
 				else {
 					switch($source){
