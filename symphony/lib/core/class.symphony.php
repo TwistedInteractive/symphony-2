@@ -132,9 +132,6 @@
 				GenericExceptionHandler::$enabled = false;
 			}
 
-            // Check if there are new pages added manually, or if there are pages deleted manually:
-            PageManager::checkIndex();
-
 			// Set system language
 			Lang::set(self::$Configuration->get('lang', 'symphony'));
 		}

@@ -137,7 +137,21 @@
          */
         public static function checkIndex()
         {
-            // First, check if there are duplicate unique hashes. This is ofcourse not done!
+	        if(self::index()->isDirty())
+            {
+                $callback = Administration::instance()->getPageCallback();
+                if($callback['driver'] != 'login')
+                {
+                    // The index is dirty. Show a message to go to the diff page.
+                    Administration::instance()->Page->pageAlert(
+                        sprintf(__('One or more pages are modified outside of Symphony. <a href="%s">Show differences</a>'),
+                        SYMPHONY_URL.'/blueprints/pages/diff/'),
+                        Alert::ERROR
+                    );
+                }
+            }
+
+/*            // First, check if there are duplicate unique hashes. This is ofcourse not done!
             if($_hash = self::index()->hasDuplicateHashes())
             {
                 throw new Exception(__('Duplicate unique hash found in Pages: '.$_hash));
@@ -165,7 +179,7 @@
                     // No page found with this hash, this page is deleted.
                     self::lookup()->delete($_hash);
                 }
-            }
+            }*/
         }
 
 		/**

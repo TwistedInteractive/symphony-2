@@ -1084,4 +1084,338 @@
 		public static function typeUsed($page_id, $type) {
 			return PageManager::hasPageTypeBeenUsed($page_id, $type);
 		}
+
+		public function __viewDiff(){
+			// Check if accept or reject is clicked:
+			$context = $this->getContext();
+			if(isset($context[1]))
+			{
+				switch($context[1])
+				{
+					case 'accept' :
+						{
+							$this->__acceptDiff();
+							/* Todo: Show the notice after the redirect: */
+							Administration::instance()->Page->pageAlert(__('Page modifications are successfully accepted.'), Alert::SUCCESS);
+							redirect(SYMPHONY_URL.'/blueprints/pages/');
+							break;
+						}
+					case 'reject' :
+						{
+							$this->__rejectDiff();
+							/* Todo: Show the notice after the redirect: */
+							Administration::instance()->Page->pageAlert(__('Page modifications are successfully rejected.'), Alert::SUCCESS);
+							redirect(SYMPHONY_URL.'/blueprints/pages/');
+							break;
+						}
+					default:
+						{
+							// Invalid URL, redirect to diff screen:
+							redirect(SYMPHONY_URL.'/blueprints/pages/diff/');
+							break;
+						}
+				}
+			}
+
+			$this->setTitle(__('%1$s &ndash; %2$s', array(__('Pages Differences'), __('Symphony'))));
+			$this->addStylesheetToHead(SYMPHONY_URL.'/assets/css/symphony.diff.css');
+
+			// Create the head:
+			$tableHead = Widget::TableHead(array(
+				array(__('Page')),
+				array(__('Changes')),
+			));
+
+			// Get the indexes:
+			$cachedIndex = PageManager::index()->getIndex();
+			$localIndex  = PageManager::index()->getLocalIndex();
+
+			// Check if the local index is valid:
+			if($localIndex === false)
+			{
+				$error = true;
+				$tableRows[] = Widget::TableRow(array(
+					new XMLElement('td', __('XML Error')),
+					new XMLElement('td', __('One ore more XML files are not well-formed. Please validate your XML first.')),
+				), 'error');
+			} else {
+				// Well, at least our XML is valid! ;-)
+
+				// This is an array to keep track of the rows added to our table:
+				$tableRows = array();
+
+				// Array to keep track of the sections that are already found:
+				$foundPages = array();
+
+				// Flag if an error is found (and changes cannot be accepted):
+				$error = false;
+
+				// Check the cached sections:
+				foreach($cachedIndex->xpath('page') as $cachedPage)
+				{
+					$rowClass = null;
+					$localPages = $localIndex->xpath(
+						sprintf('page[unique_hash=\'%s\']', (string)$cachedPage->unique_hash)
+					);
+					if(count($localPages) == 1)
+					{
+						$localPage = $localPages[0];
+						// Page found in local index, check for differences:
+						$cachedRow = new XMLElement('td', (string)$cachedPage->title);
+						// Check if the parsed XML is identical:
+						if($cachedPage->saveXML() == $localPage->saveXML())
+						{
+							$localRow = new XMLElement('td', __('No changes found.'));
+							$rowClass = 'no-changes';
+						} else {
+							$localRow = new XMLElement('td', __('Page is modified:'));
+							// Show changes:
+							$changes = new XMLElement('ul');
+							foreach($cachedPage->children() as $cachedElement)
+							{
+								// Iterate through each element to detect changes:
+								$name = $cachedElement->getName();
+								switch($name)
+								{
+									case 'types' :
+										{
+											$cachedTypes = array();
+											$localTypes = array();
+											foreach($cachedElement->children() as $cachedType)
+											{
+												$cachedTypes[] = (string)$cachedType;
+											}
+											// Check if there are new types in the localElement:
+											$localElements = $localPage->xpath('types/type');
+											foreach($localElements as $localType)
+											{
+												$type = (string)$localType;
+
+												if(!in_array($type, $cachedTypes))
+												{
+													// Type not found. This is a new type and will be added
+													$changes->appendChild(
+														new XMLElement('li', sprintf(__('Type <em>\'%s\'</em> is new and will be added.'), $type))
+													);
+												}
+												$localTypes[] = $type;
+											}
+											// Check if there are types to be removed:
+											foreach($cachedTypes as $type)
+											{
+												if(!in_array($type, $localTypes))
+												{
+													// Type not found. This is a new type and will be added
+													$changes->appendChild(
+														new XMLElement('li', sprintf(__('Type <em>\'%s\'</em> will be removed.'), $type))
+													);
+												}
+											}
+											break;
+										}
+									case 'datasources' :
+										{
+											// Todo
+											break;
+										}
+									case 'events' :
+										{
+											// Todo
+											break;
+										}
+									default:
+										{
+											// See if this element exists in the local section:
+											$localElements = $localPage->xpath($name);
+											if(count($localElements) == 1)
+											{
+												// Local element found, check if there are differences:
+												$localElement = $localElements[0];
+												if($cachedElement->saveXML() != $localElement->saveXML())
+												{
+													// Not identical:
+													$changes->appendChild(
+														new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> : %s → %s'), $name,
+															(string)$cachedElement,
+															(string)$localElement
+														))
+													);
+												}
+											} else {
+												// Local element not found: throw error, since this is not correct:
+												$changes->appendChild(
+													new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> not found. Changes cannot be accepted.'), $name))
+												);
+												$error = true;
+												$rowClass = 'error';
+											}
+											break;
+										}
+								}
+							}
+							$localRow->appendChild($changes);
+						}
+					} elseif(count($localPages) > 1) {
+						// Section with duplicate hashes found. This is not allowed:
+						$cachedRow = new XMLElement('td', (string)$cachedPage->name);
+						$localRow  = new XMLElement('td', __('Duplicate hash found for this page.'));
+						$error = true;
+						$rowClass = 'error';
+					} else {
+						// Section not found in local index, section is going to be deleted:
+						$cachedRow = new XMLElement('td', (string)$cachedPage->name);
+						$localRow  = new XMLElement('td', __('The page is not found in the local index. This page is going to be deleted'));
+						$rowClass = 'alert';
+					}
+					$tableRows[] = Widget::TableRow(array($cachedRow, $localRow), $rowClass);
+					// Add the unique hash to the foundpages:
+					$foundPages[] = (string)$cachedPage->unique_hash;
+				}
+
+				// Check the local pages (to see if there are pages added):
+				foreach($localIndex->xpath('page') as $localPage)
+				{
+					$rowClass = null;
+					if(!in_array((string)$localPage->unique_hash, $foundPages))
+					{
+						// This page is new
+						$cachedRow = new XMLElement('td', (string)$localPage->title);
+						$ok = true;
+						// Check if the hash of the page is unique:
+						if(count($cachedIndex->xpath(sprintf('page[unique_hash=\'%s\']', (string)$localPage->unique_hash))) > 0)
+						{
+							$ok = false;
+							$error = true;
+							$localRow = new XMLElement('td', __('Duplicate hash found for this page.'));
+							$rowClass = 'error';
+						}
+
+						// Check if the parent exists:
+						$localParent = (string)$localPage->parent;
+						if(count($localIndex->xpath(sprintf('page[unique_hash=\'%s\']', $localParent))) == 0)
+						{
+							$ok = false;
+							$error = true;
+							$localRow = new XMLElement('td', __('The parent page is not found.'));
+							$rowClass = 'error';
+						}
+
+						// Check if the page handle is unique for this level:
+						$localPath = (string)$localPage->path;
+						$localHandle = (string)$localPage->title['handle'];
+						if(count($localIndex->xpath(sprintf('page[path=\'%s\' and title/@handle=\'%s\']', $localPath, $localHandle))) > 1)
+						{
+							$ok = false;
+							$error = true;
+							$localRow = new XMLElement('td', __('Duplicate handle found for this level.'));
+							$rowClass = 'error';
+						}
+
+						// Check that there is only 1 index-type:
+						if(count($localIndex->xpath('page/types/type')) > 1)
+						{
+							$ok = false;
+							$error = true;
+							$localRow = new XMLElement('td', __('Only one page can be of type <em>\'index\'</em>.'));
+							$rowClass = 'error';
+						}
+
+						// Todo: check if datasources exist
+
+						// Todo: check if events exist
+
+						// Check if the pages XML file and path matches it's handle:
+						if($ok)
+						{
+							$filename = str_replace('/', '_', $localPath).'_'.$localHandle;
+							if(!file_exists(WORKSPACE.'/pages/'.$filename.'.xml'))
+							{
+								$ok = false;
+								$error = true;
+								$localRow = new XMLElement('td', sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>.'),
+									$filename));
+								$rowClass = 'error';
+							} else {
+								// Extra check to make sure that this is the correct XML-file (since we are working with the
+								// index, we don't know the filename by hand:
+								$xml = simplexml_load_file(WORKSPACE.'/pages/'.$filename.'.xml');
+								if((string)$xml->unique_hash != (string)$localPage->unique_hash)
+								{
+									$ok = false;
+									$error = true;
+									$localRow = new XMLElement('td', sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>.'),
+										$filename));
+									$rowClass = 'error';
+								}
+							}
+							// Check if there is a matching XSL-file:
+							if(!file_exists(WORKSPACE.'/pages/'.$filename.'.xsl'))
+							{
+								$ok = false;
+								$error = true;
+								$localRow = new XMLElement('td', sprintf(__('Template not found: <em>\'%s.xsl\'</em>.'),
+									$filename));
+								$rowClass = 'error';
+							}
+						}
+
+						if($ok)
+						{
+							$localRow = new XMLElement('td', __('This page is new and will be created.'));
+							// $rowClass = 'notice';
+						}
+						$tableRows[] = Widget::TableRow(array($cachedRow, $localRow), $rowClass);
+
+					}
+				}
+
+			}
+
+			$tableBody = Widget::TableBody($tableRows);
+
+			$table = Widget::Table($tableHead, null, $tableBody, 'diff');
+
+			if(!$error)
+			{
+				$list = new XMLElement('ul', null, array('class'=>'actions'));
+				$list->appendChild(new XMLElement('li', Widget::Anchor(__('Accept Changes'), SYMPHONY_URL.'/blueprints/pages/diff/accept/', __('Accept Changes'), 'create button', NULL, array('accesskey' => 'a'))));
+				$list->appendChild(new XMLElement('li', Widget::Anchor(__('Reject Changes'), SYMPHONY_URL.'/blueprints/pages/diff/reject/', __('Reject Changes'), 'button', NULL, array('accesskey' => 'r'))));
+				$this->appendSubheading(__('Page Differences'));
+				$this->Context->appendChild($list);
+			} else {
+				$this->Contents->appendChild(new XMLElement('p', __('The changes cannot be accepted for one ore more reasons. Please see the report below to find out what\'s wrong:'), array('class'=>'diff-notice')));
+				$this->appendSubheading(__('Page Differences'), Widget::Anchor(__('Reject Changes'), SYMPHONY_URL.'/blueprints/pages/diff/reject/', __('Reject Changes'), 'button', NULL, array('accesskey' => 'r')));
+			}
+			$this->Contents->appendChild($table);
+
+		}
+
+		/**
+		 * Reject the diff. Use the cached XML tree to re-generate the page XML files.
+		 */
+		private function __rejectDiff()
+		{
+			// Delete all local page XML files:
+			// Todo: XSL files are now manually to be deleted. Can this be automated?
+			$files = glob(WORKSPACE.'/pages/*.xml');
+			foreach($files as $file)
+			{
+				// General::deleteFile($file);
+			}
+
+			// Store the cached pages as new XML files:
+			$index = PageManager::index()->getIndex();
+			foreach($index->children() as $page)
+			{
+				// Save the pages, without reIndexing. We'll reIndex manually after saving all the sections:
+/*				PageManager::saveSection(
+					SectionManager::lookup()->getId((string)$section->unique_hash), false
+				);*/
+
+			}
+
+			// Clear the cache and reIndex:
+			PageManager::index()->reIndex();
+		}
+
 	}

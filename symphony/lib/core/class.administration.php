@@ -14,6 +14,7 @@
 	require_once(TOOLKIT . '/class.htmlpage.php');
 	require_once(TOOLKIT . '/class.ajaxpage.php');
 	require_once(TOOLKIT . '/class.sectionmanager.php');
+	require_once(TOOLKIT . '/class.pagemanager.php');
 
 	Class Administration extends Symphony{
 
@@ -178,6 +179,9 @@
 			}
 			else {
 				if (!is_array($this->_callback['context'])) $this->_callback['context'] = array();
+
+	            // Check if there are new pages added manually, or if there are pages deleted manually:
+	            PageManager::checkIndex();
 
 				// Check if there are new sections added, edited or deleted manually:
 				SectionManager::checkIndex();
