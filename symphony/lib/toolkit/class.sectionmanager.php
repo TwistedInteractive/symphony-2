@@ -308,12 +308,8 @@
 
 				$obj->set('id', self::lookup()->getId((string)$s->unique_hash));
 
-				// Todo: entry_order
-				// Todo: entry_order_direction
-
-/*				foreach($s as $name => $value){
-					$obj->set($name, $value);
-				}*/
+				// Todo: entry_order?
+				// Todo: entry_order_direction?
 
 				self::$_pool[$obj->get('id')] = $obj;
 
