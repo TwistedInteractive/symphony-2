@@ -1274,9 +1274,9 @@
 												}
 												$cachedEvents[] = (string)$cachedEvent;
 											}
-											// Check if datasource exists:
+											// Check if events exists:
 											$foundEvents = array();
-											$files = glob(WORKSPACE.'/events/event.*.php');
+											$files = glob(EVENTS.'/event.*.php');
 											foreach($files as $file)
 											{
 												$info = pathinfo($file);
@@ -1334,17 +1334,27 @@
 										}
 								}
 							}
+							// Todo: check parent
+
+							// Todo: check for duplicate handle
+
+							// Todo: check for duplicate index
+
+							// Todo: check filename
+							
+							// Todo: check if the template exists
+
 							$localRow->appendChild($changes);
 						}
 					} elseif(count($localPages) > 1) {
 						// Section with duplicate hashes found. This is not allowed:
-						$cachedRow = new XMLElement('td', (string)$cachedPage->name);
+						$cachedRow = new XMLElement('td', (string)$cachedPage->title);
 						$localRow  = new XMLElement('td', __('Duplicate hash found for this page.'));
 						$error = true;
 						$rowClass = 'error';
 					} else {
 						// Section not found in local index, section is going to be deleted:
-						$cachedRow = new XMLElement('td', (string)$cachedPage->name);
+						$cachedRow = new XMLElement('td', (string)$cachedPage->title);
 						$localRow  = new XMLElement('td', __('The page is not found in the local index. This page is going to be deleted'));
 						$rowClass = 'alert';
 					}
@@ -1373,7 +1383,7 @@
 
 						// Check if the parent exists:
 						$localParent = (string)$localPage->parent;
-						if(count($localIndex->xpath(sprintf('page[unique_hash=\'%s\']', $localParent))) == 0)
+						if(!empty($parent) && count($localIndex->xpath(sprintf('page[unique_hash=\'%s\']', $localParent))) == 0)
 						{
 							$ok = false;
 							$error = true;
@@ -1428,11 +1438,11 @@
 
 						// Check if events exist:
 						$foundEvents = array();
-						$files = glob(WORKSPACE.'/events/event.*.php');
+						$files = glob(EVENTS.'/event.*.php');
 						foreach($files as $file)
 						{
 							$info = pathinfo($file);
-							$foundDatasources[] = str_replace('event.', '', $info['filename']);
+							$foundEvents[] = str_replace('event.', '', $info['filename']);
 						}
 						foreach($localPage->xpath('events/event') as $localEvent)
 						{
@@ -1476,7 +1486,7 @@
 								{
 									$ok = false;
 									$error = true;
-									$localRow = new XMLElement('td', sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>.'),
+									$localRow = new XMLElement('td', sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>, or the handle should be adjusted to correspond with the filename.'),
 										$filename));
 									$rowClass = 'error';
 								}
@@ -1547,35 +1557,33 @@
 					// This page is found, edit it according to it's local page:
 					$localPage = $localPages[0];
 					$data = array();
-					/*
-				$fields['handle'],
-				$fields['title'],
-				$fields['path'],
-				$fields['params'],
-				$datasources,
-				$events,
-				$fields['sortorder'],
-				$fields['unique_hash'],
-			    $types,
-			    self::lookup()->getHash($fields['parent'])
-					 */
 					$this->__buildData($data, 'handle', (string)$localPage->title['handle']);
-					$this->__buildData($data, 'title', (string)$localPage->title['title']);
-					$this->__buildData($data, 'path', (string)$localPage->title['path']);
-					$this->__buildData($data, 'params', (string)$localPage->title['params']);
-					$this->__buildData($data, 'sortorder', (string)$localPage->title['sortorder']);
-					$this->__buildData($data, 'parent', (string)$localPage->title['parent']);
+					$this->__buildData($data, 'title', (string)$localPage->title);
+					$this->__buildData($data, 'path', (string)$localPage->path);
+					$this->__buildData($data, 'params', (string)$localPage->params);
+					$this->__buildData($data, 'sortorder', (string)$localPage->sortorder);
+					$this->__buildData($data, 'parent', (string)$localPage->parent);
 
-					// todo: datasources
+					// Datasources:
+					$data['data_sources'] = array();
+					foreach($localPage->xpath('datasources/datasource') as $localDatasource)
+					{
+						$data['data_sources'][] = (string)$localDatasource;
+					}
 
-					// todo: events
+					// Events:
+					$data['events'] = array();
+					foreach($localPage->xpath('events/event') as $localEvent)
+					{
+						$data['events'][] = (string)$localEvent;
+					}
 
-					// todo: types
-
-					// todo: everything else :-P
-
-					print_r($data);
-					die();
+					// Types:
+					$data['type'] = array();
+					foreach($localPage->xpath('types/type') as $localType)
+					{
+						$data['type'][] = (string)$localType;
+					}
 
 					PageManager::edit(
 						PageManager::lookup()->getId((string)$cachedPage->unique_hash), $data
@@ -1590,47 +1598,58 @@
 			}
 
 			// Check the local sections (to see if there are sections added):
-			foreach($localIndex->xpath('section') as $localSection)
+			foreach($localIndex->xpath('page') as $localPage)
 			{
-				if(!in_array((string)$localSection->unique_hash, $foundPages))
+				if(!in_array((string)$localPage->unique_hash, $foundPages))
 				{
-					$sectionSettings = array(
-						'name' 				=> (string)$localSection->name,
-						'handle' 			=> (string)$localSection->name['handle'],
-						'sortorder' 		=> (string)$localSection->sortorder,
-						'hidden' 			=> (string)$localSection->hidden,
-						'navigation_group' 	=> (string)$localSection->navigation_group,
-						'unique_hash'		=> (string)$localSection->unique_hash
+					// This is a new page
+					$data = array(
+						'title'				=> (string)$localPage->title,
+						'handle' 			=> (string)$localPage->handle['handle'],
+						'path'				=> (string)$localPage->path,
+						'params'			=> (string)$localPage->params,
+						'sortorder' 		=> (string)$localPage->sortorder,
+						'unique_hash'		=> (string)$localPage->unique_hash
 					);
-					// This is a new section, add it:
-					SectionManager::add(
-						$sectionSettings
-					);
-					// Add the fields:
-					foreach($localSection->xpath('fields/field') as $localSectionField)
+
+					// Datasources:
+					$data['data_sources'] = array();
+					foreach($localPage->xpath('datasources/datasource') as $localDatasource)
 					{
-						$fieldSettings = array(
-							'parent_section' => SectionManager::lookup()->getId(
-								(string)$localSection->unique_hash
-							)
-						);
-
-						// Add the fields:
-						foreach($localSectionField->children() as $localFieldElement)
-						{
-							$fieldSettings[$localFieldElement->getName()] = (string)$localFieldElement;
-						}
-
-						// Add (and thus saving) the field:
-						$id = FieldManager::add($fieldSettings);
-						// Create the data table of the field:
-						$field = FieldManager::fetch($id);
-						$field->createTable();
+						$data['data_sources'][] = (string)$localDatasource;
 					}
+
+					// Events:
+					$data['events'] = array();
+					foreach($localPage->xpath('events/event') as $localEvent)
+					{
+						$data['events'][] = (string)$localEvent;
+					}
+
+					// Types:
+					$data['type'] = array();
+					foreach($localPage->xpath('types/type') as $localType)
+					{
+						$data['type'][] = (string)$localType;
+					}
+
+					// This is a new page, add it:
+					PageManager::add($data);
 				}
 			}
 		}
 
+		/**
+		 * Little helper function to help build the $data-array in __acceptDiff()
+		 *
+		 * @param $data
+		 *  A reference to the data
+		 * @param $key
+		 *  Array key
+		 * @param $value
+		 *  The value
+		 * @return void
+		 */
 		private function __buildData(&$data, $key, $value)
 		{
 			if(!empty($value))
