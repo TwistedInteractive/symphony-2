@@ -32,6 +32,9 @@ class Index
 	// Reference the cachable:
 	private $_cache;
 
+	// If the index is dirty (difference between XML files and cached index)
+	private $_dirty;
+
 	/**
 	 * Get the index
 	 *
@@ -71,6 +74,13 @@ class Index
 					$this->_element_name = 'pages';
 					$this->reIndex();
 					break;
+				}
+			case self::INDEX_SECTIONS :
+				{
+					$this->_path = WORKSPACE.'/sections/*.xml';
+					$this->_element_name = 'sections';
+					// Sections are overwritten with $overwrite set to false, to make use of the dirty-flag.
+					$this->reIndex(false);
 				}
 		}
 	}
@@ -142,6 +152,7 @@ class Index
 		if($xpath != null)
 		{
 			$array = $this->xpath($xpath);
+			if($array == false) { $array = array(); }
 		} else {
 			foreach($this->_index->children() as $_item)
 			{
@@ -210,48 +221,66 @@ class Index
 	 * Setup the index. The index is a SimpleXMLElement which stores all information about all
 	 * items. Therefore, the setup only needs to be loaded once, and not for each request.
 	 *
+	 * @param $overwrite bool
+	 *  Automatically overwrite the index. If this is false, the cached index is used, instead of
+	 *  the index built of the separate XML files.
+	 *
 	 * @return bool
 	 *  true if a new index is built, false if the index from the cache is loaded
 	 */
-	public function reIndex()
+	public function reIndex($overwrite = true)
 	{
 		// Load the pages:
-		$_pages = glob($this->_path);
+		$_files = glob($this->_path);
 
 		// Build an array of md5-hashes, to check with the cached version:
 		// This is done to detect if the XML-files in the folder have been changed.
 		$_md5 = array();
-		foreach($_pages as $_page)
+		foreach($_files as $_file)
 		{
-			$_md5[] = md5_file($_page);
+			$_md5[] = md5_file($_file);
 		}
 		$_md5_hash = md5(implode(',', $_md5));
 
 		// Check if the cached version is the same:
 		$_data = $this->_cache->check('index:'.$this->_element_name);
 		$_buildIndex = true;
+		$this->_dirty = true;
 		if($_data !== false)
 		{
 			// Load the cached XML:
 			$this->_index = new SimpleXMLElement($_data['data']);
 			// Check the MD5:
-			if($this->_index['md5'] != $_md5_hash)
+			if((string)$this->_index['md5'] == $_md5_hash)
 			{
-				$_buildIndex = true;
+				$_buildIndex = false;
+				$this->_dirty = false;
 			}
+		} else {
+			// No cached data found, create a new index:
+			$overwrite = true;
+/*			$this->_index = new SimpleXMLElement('<'.$this->_element_name.'/>');
+			$this->_index->addAttribute('md5', $_md5_hash);
+			if(!$overwrite)
+			{
+				// Set dirty to false, otherwise you would get a notification about changes:
+				$this->_dirty = false;
+			}*/
 		}
 
 		// Check if an index needs to be built:
-		if($_buildIndex)
+		if($_buildIndex && $overwrite)
 		{
 			$this->_index = new SimpleXMLElement('<'.$this->_element_name.'/>');
 			$this->_index->addAttribute('md5', $_md5_hash);
-			foreach($_pages as $_page)
+			foreach($_files as $_file)
 			{
-				$this->mergeXML($this->_index, simplexml_load_file($_page));
+				$this->mergeXML($this->_index, simplexml_load_file($_file));
 			}
 			// Cache it:
 			$this->_cache->write('index:'.$this->_element_name, $this->_index->saveXML());
+			// Not dirty anymore:
+			$this->_dirty = false;
 		}
 
 		/**
@@ -264,17 +293,20 @@ class Index
 		 * @param SimpleXMLElement $this->_index
 		 *  A reference to the index
 		 */
-		Symphony::ExtensionManager()->notifyMembers('IndexBuilt', '/global/', array('index' => $this->_index));
+		Symphony::ExtensionManager()->notifyMembers('PostIndexBuilt',
+			(class_exists('Administration') ? '/backend/' : '/frontend/'), array('index' => $this->_index));
 
 		return $_buildIndex;
 	}
 
 	/**
+	 * Merge SimpleXMLObjects
+	 *
 	 * @param $xml_element	SimpleXMLElement
 	 * @param $append		SimpleXMLElement
 	 * @return void
 	 */
-	private function mergeXML($xml_element, $append)
+	public function mergeXML($xml_element, $append)
     {
         if ($append) {
             if (strlen(trim((string) $append))==0) {
@@ -291,4 +323,132 @@ class Index
         }
     }
 
+	/**
+	 * Return the cached index
+	 *
+	 * @return SimpleXMLElement
+	 */
+	public function getIndex()
+	{
+		return $this->_index;
+	}
+
+
+	/**
+	 * Return the local, non-cached index
+	 *
+	 * @return SimpleXMLElement
+	 */
+	public function getLocalIndex()
+	{
+		$index = new SimpleXMLElement('<'.$this->_element_name.'/>');
+		$_files = glob($this->_path);
+		foreach($_files as $_file)
+		{
+			@$xml = simplexml_load_file($_file);
+			if($xml === false)
+			{
+				return false;
+			} else {
+				$this->mergeXML(&$index, $xml);
+			}
+		}
+		return $index;
+	}
+
+	/**
+	 * Edit the value of a node in the index (note: this does not save the index to a new file)
+	 * If the node doesn't exists, it will be created
+	 *
+	 * @param $xpath
+	 *  The XPath to the node to edit
+	 * @param $value
+	 *  The new value of the node
+	 */
+	public function editValue($xpath, $value)
+	{
+		$node = $this->xpath($xpath);
+		if(count($node) == 0)
+		{
+			// Todo: Node doesn't exist, create a new node:
+			
+		} else {
+			$node = $node[0];
+			$node[0] = $value;
+		}
+	}
+
+	/**
+	 * Edit the value of a node in the index (note: this does not save the index to a new file)
+	 *
+	 * @param $xpath
+	 *  The XPath to the node to edit
+	 * @param $attribute
+	 *  The name of the attribute to edit
+	 * @param $value
+	 *  The new value of the node
+	 */
+	public function editAttribute($xpath, $attribute, $value)
+	{
+		$node = $this->xpath($xpath);
+		$node = $node[0];
+		$node[$attribute] = $value;
+	}
+
+	/**
+	 * Remove a node from the index
+	 *
+	 * @param $xpath
+	 *  The XPath to the specific node to remove
+	 */
+	public function removeNode($xpath)
+	{
+		$nodes = $this->xpath($xpath);
+		if($nodes != false)
+		{
+			foreach ($nodes as $item) {
+				$node = dom_import_simplexml($item);
+				$node->parentNode->removeChild($node);
+			}
+		}
+	}
+
+	/**
+	 * Get formatted XML from the Index
+	 *
+	 * @param $xpath
+	 *  The XPath to get the XML from
+	 * @return string
+	 *  The formatted XML
+	 */
+	public function getFormattedXML($xpath)
+	{
+		// Fetch all nodes and convert them to a XML string:
+		$nodes = $this->xpath($xpath);
+		$xmlString = '';
+		foreach($nodes as $node)
+		{
+			$xmlString .= str_replace('<?xml version="1.0"?>', '', $node->saveXML());
+		}
+
+		// Make it pretty:
+		$dom = new DOMDocument();
+		$dom->preserveWhiteSpace = false;
+		$dom->formatOutput = true;
+		$dom->loadXML($xmlString);
+
+		// Return the XML string:
+		return $dom->saveXML();
+	}
+
+	/**
+	 * Checks whether the index is dirty. If the index is dirty, this means that the XML
+	 * files differ from the cached XML and the cached XML is used.
+	 *
+	 * @return bool
+	 */
+	public function isDirty()
+	{
+		return $this->_dirty;
+	}
 }

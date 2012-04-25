@@ -118,7 +118,8 @@
 				$options = array();
 
 				if(is_array($sections) && !empty($sections)){
-					foreach($sections as $s) $options[] = array($s->get('id'), ($fields['source'] == $s->get('id')), General::sanitize($s->get('name')));
+					$section_id = SectionManager::lookup()->getId(str_replace('section:', '', $fields['source']));
+					foreach($sections as $s) $options[] = array($s->get('id'), ($section_id == $s->get('id')), General::sanitize($s->get('name')));
 				}
 
 				$label->appendChild(Widget::Select('fields[source]', $options, array('id' => 'event-context')));
@@ -468,7 +469,7 @@
 
 				$eventShell = str_replace('<!-- CLASS NAME -->', $classname, $eventShell);
 				$eventShell = str_replace('<!-- CLASS EXTENDS -->', $extends, $eventShell);
-				$eventShell = str_replace('<!-- SOURCE -->', $source, $eventShell);
+				$eventShell = str_replace('<!-- SOURCE -->', 'section:'.SectionManager::lookup()->getHash($source), $eventShell);
 				$eventShell = str_replace('<!-- DOCUMENTATION -->', General::tabsToSpaces($documentation, 2), $eventShell);
 				$eventShell = str_replace('<!-- ROOT ELEMENT -->', $rootelement, $eventShell);
 

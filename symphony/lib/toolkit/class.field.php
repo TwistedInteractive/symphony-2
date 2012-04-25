@@ -441,6 +441,8 @@
 			// Create content
 			$wrapper->appendChild(Widget::Input('fields['.$this->get('sortorder').'][type]', $this->handle(), 'hidden'));
 			if($this->get('id')) $wrapper->appendChild(Widget::Input('fields['.$this->get('sortorder').'][id]', $this->get('id'), 'hidden'));
+			if($this->get('unique_hash')) $wrapper->appendChild(Widget::Input('fields['.$this->get('sortorder').'][unique_hash]',
+				$this->get('unique_hash'), 'hidden'));
 
 			$wrapper->appendChild($this->buildSummaryBlock($errors));
 		}
@@ -860,7 +862,9 @@
 		 *  the suffix to apply to the display of this.
 		 */
 		public function displayDatasourceFilterPanel(XMLElement &$wrapper, $data = null, $errors = null, $fieldnamePrefix = null, $fieldnamePostfix = null){
-			$wrapper->appendChild(new XMLElement('header', '<h4>' . $this->get('label') . '</h4> <span>' . $this->name() . '</span>'));
+			$wrapper->appendChild(new XMLElement('header', '<h4>' . $this->get('label') . '</h4> <span>' . $this->name() . '</span>', array(
+				'data-name' => $this->get('label') . ' (' . $this->name() . ')'
+			)));
 			$label = Widget::Label(__('Value'));
 			$label->appendChild(Widget::Input('fields[filter]'.($fieldnamePrefix ? '['.$fieldnamePrefix.']' : '').'['.$this->get('id').']'.($fieldnamePostfix ? '['.$fieldnamePostfix.']' : ''), ($data ? General::sanitize($data) : null)));
 			$wrapper->appendChild($label);
@@ -1276,4 +1280,16 @@
 		public function buildDSRetrivalSQL($data, &$joins, &$where, $andOperation = false) {
 			return $this->buildDSRetrievalSQL($data, $joins, $where, $andOperation);
 		}
+
+		/**
+		 * Returns the element names of the configuration
+		 *
+		 * @return array
+		 *  An array with the element names of the configuration
+		 */
+/*		public function getConfiguration()
+		{
+			return array();
+		}*/
+
 	}

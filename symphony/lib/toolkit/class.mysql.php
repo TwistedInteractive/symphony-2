@@ -343,10 +343,10 @@
 		}
 
 		/**
-		 * This function will clean a string using the mysql_real_escape_string function
+		 * This function will clean a string using the `mysql_real_escape_string` function
 		 * taking into account the current database character encoding. Note that this
-		 * function does not encode _ or %. If mysql_real_escape_string doesn't exist
-		 * addslashes will be used as a backup option
+		 * function does not encode _ or %. If `mysql_real_escape_string` doesn't exist,
+		 * `addslashes` will be used as a backup option
 		 *
 		 * @param string $value
 		 *  The string to be encoded into an escaped SQL string
@@ -363,11 +363,12 @@
 		}
 
 		/**
-		 * This function will apply the cleanValue function to an associative
+		 * This function will apply the `cleanValue` function to an associative
 		 * array of data, encoding only the value, not the key. This function
 		 * can handle recursive arrays. This function manipulates the given
 		 * parameter by reference.
 		 *
+		 * @see cleanValue
 		 * @param array $array
 		 *  The associative array of data to encode, this parameter is manipulated
 		 *  by reference.
@@ -484,7 +485,7 @@
 			 * queries that set the character set.
 			 *
 			 * @since Symphony 2.3
-			 * @delegate LogQuery
+			 * @delegate PostQueryExecution
 			 * @param string $context
 			 * '/frontend/' or '/backend/'
 			 * @param string $query
@@ -738,7 +739,7 @@
 		 *  Returns the value of the given column, if it doesn't exist, null will be
 		 *  returned
 		 */
-		public function fetchVar ($column, $offset = 0, $query = null){
+		public function fetchVar($column, $offset = 0, $query = null){
 			$result = $this->fetch($query);
 			return (empty($result) ? null : $result[$offset][$column]);
 		}
@@ -767,7 +768,7 @@
 		 * before throwing a `DatabaseException`
 		 *
 		 * @uses QueryExecutionError
-		 * @return DatabaseException
+		 * @throws DatabaseException
 		 */
 		private function __error() {
 			$msg = mysql_error();
@@ -791,7 +792,7 @@
 			 *  The hash used by Symphony to uniquely identify this query
 			 * @param string $msg
 			 *  The error message provided by MySQL which includes information on why the execution failed
-			 * @param int $num
+			 * @param integer $num
 			 *  The error number that corresponds with the MySQL error message
 			 */
 			if(Symphony::ExtensionManager() instanceof ExtensionManager) {
@@ -861,16 +862,15 @@
 		 *
 		 * @param string $sql
 		 *  A string containing SQL queries delimited by `;`
+		 * @param boolean $force_engine
+		 *  If set to true, this will set MySQL's default storage engine to MyISAM.
+		 *  Defaults to false, which will use MySQL's default storage engine when
+		 *  tables don't explicitly define which engine they should be created with
 		 * @return boolean
 		 *  If one of the queries fails, false will be returned and no further queries
 		 *  will be executed, otherwise true will be returned.
 		 */
-		public function import($sql, $use_server_encoding = true, $force_engine = false){
-			if($use_server_encoding){
-				$sql = str_replace('DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci', NULL, $sql);
-				$sql = str_replace('COLLATE utf8_unicode_ci', NULL, $sql);
-			}
-
+		public function import($sql, $force_engine = false){
 			if($force_engine){
 				// Silently attempt to change the storage engine. This prevents INNOdb errors.
 				$this->query('SET storage_engine=MYISAM');

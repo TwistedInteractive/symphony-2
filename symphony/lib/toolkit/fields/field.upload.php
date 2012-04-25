@@ -162,12 +162,10 @@
 
 			$fields = array();
 
-			$fields['field_id'] = $id;
 			$fields['destination'] = $this->get('destination');
 			$fields['validator'] = ($fields['validator'] == 'custom' ? NULL : $this->get('validator'));
 
-			Symphony::Database()->query("DELETE FROM `tbl_fields_".$this->handle()."` WHERE `field_id` = '$id' LIMIT 1");
-			return Symphony::Database()->insert($fields, 'tbl_fields_' . $this->handle());
+			return FieldManager::saveSettings($id, $fields);
 		}
 
 	/*-------------------------------------------------------------------------
@@ -188,7 +186,7 @@
 			if($this->get('required') != 'yes') $label->appendChild(new XMLElement('i', __('Optional')));
 
 			$span = new XMLElement('span', NULL, array('class' => 'frame'));
-			if($data['file']) $span->appendChild(Widget::Anchor('/workspace' . $data['file'], URL . '/workspace' . $data['file']));
+			if($data['file']) $span->appendChild(new XMLElement('span', Widget::Anchor('/workspace' . $data['file'], URL . '/workspace' . $data['file'])));
 
 			$span->appendChild(Widget::Input('fields'.$fieldnamePrefix.'['.$this->get('element_name').']'.$fieldnamePostfix, $data['file'], ($data['file'] ? 'hidden' : 'file')));
 

@@ -131,7 +131,7 @@
 				$provided = false;
 				if(!empty($providers)) {
 					foreach($providers as $providerClass => $provider) {
-						if($fields['source'] == $providerClass::getClass()) {
+						if($fields['source'] == call_user_func(array($providerClass, 'getClass'))) {
 							$fields = array_merge($fields, $existing->settings());
 							$provided = true;
 							break;
@@ -167,6 +167,7 @@
 							break;
 
 						default:
+							// Section:
 							$fields['filter'][$fields['source']] = $existing->dsParamFILTERS;
 							$fields['max_records'] = $existing->dsParamLIMIT;
 							break;
@@ -254,7 +255,8 @@
 			// Add Sections
 			if(is_array($sections) && !empty($sections)){
 				array_unshift($options, array('label' => __('Sections'), 'options' => array()));
-				foreach($sections as $s) $options[0]['options'][] = array($s->get('id'), ($fields['source'] == $s->get('id')), General::sanitize($s->get('name')));
+				$section_id = SectionManager::lookup()->getId(str_replace('section:', '', $fields['source']));
+				foreach($sections as $s) $options[0]['options'][] = array($s->get('id'), ($section_id == $s->get('id')), General::sanitize($s->get('name')));
 			}
 
 			$label->appendChild(Widget::Select('fields[source]', $options, array('id' => 'ds-context')));
@@ -685,7 +687,9 @@
 							foreach($elements as $name){
 								$selected = false;
 
-								if($fields['source'] == $section_data['section']->get('id') && in_array($name, $fields['xml_elements'])){
+								$section_id = SectionManager::lookup()->getId(str_replace('section:', '', $fields['source']));
+
+								if($section_id == $section_data['section']->get('id') && in_array($name, $fields['xml_elements'])){
 									$selected = true;
 								}
 
@@ -835,7 +839,7 @@
 		// creating a 'big' page and then hiding the fields with JS
 			if(!empty($providers)) {
 				foreach($providers as $providerClass => $provider) {
-					$providerClass::buildEditor($this->Form, $this->_errors, $fields, $handle);
+					call_user_func(array($providerClass, 'buildEditor'), $this->Form, &$this->_errors, $fields, $handle);
 				}
 			}
 
@@ -1048,8 +1052,8 @@
 			// See if a Provided Datasource is saved
 			elseif (!empty($providers)) {
 				foreach($providers as $providerClass => $provider) {
-					if($fields['source'] == $providerClass::getSource()) {
-						$providerClass::validate($fields, $this->_errors);
+					if($fields['source'] == call_user_func(array($providerClass, 'getSource'))) {
+						call_user_func(array($providerClass, 'validate'), &$fields, &$this->_errors);
 						break;
 					}
 					unset($providerClass);
@@ -1097,7 +1101,7 @@
 
 				// If there is a provider, get their template
 				if($providerClass) {
-					$dsShell = file_get_contents($providerClass::getTemplate());
+					$dsShell = file_get_contents(call_user_func(array($providerClass, 'getTemplate')));
 				}
 				else {
 					$dsShell = file_get_contents($this->getTemplate('blueprints.datasource'));
@@ -1112,7 +1116,7 @@
 
 				// If there is a provider, let them do the prepartion work
 				if($providerClass) {
-					$dsShell = $providerClass::prepare($fields, $params, $dsShell);
+					$dsShell = call_user_func(array($providerClass, 'prepare'), $fields, $params, $dsShell);
 				}
 				else {
 					switch($source){
@@ -1246,7 +1250,7 @@
 					}
 					
 					$dsShell = str_replace('<!-- CLASS EXTENDS -->', $extends, $dsShell);
-					$dsShell = str_replace('<!-- SOURCE -->', $source, $dsShell);
+					$dsShell = str_replace('<!-- SOURCE -->', 'section:'.SectionManager::lookup()->getHash($source), $dsShell);
 				}
 
 				if($this->_context[0] == 'new') {

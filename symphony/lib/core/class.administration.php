@@ -107,7 +107,6 @@
 					$page  = "/login";
 				}
 				else {
-
 					// Will redirect an Author to their default area of the Backend
 					// Integers are indicative of section's, text is treated as the path
 					// to the page after `SYMPHONY_URL`
@@ -180,6 +179,23 @@
 			else {
 				if (!is_array($this->_callback['context'])) $this->_callback['context'] = array();
 
+				// Check if there are new sections added, edited or deleted manually:
+				SectionManager::checkIndex();
+
+				// Do any extensions need updating?
+				$extensions = Symphony::ExtensionManager()->listInstalledHandles();
+				if(is_array($extensions) && !empty($extensions) && $this->__canAccessAlerts()) {
+					foreach($extensions as $name) {
+						$about = Symphony::ExtensionManager()->about($name);
+						if(in_array(EXTENSION_REQUIRES_UPDATE,$about['status'])) {
+							$this->Page->pageAlert(
+								__('An extension requires updating.') . ' <a href="' . SYMPHONY_URL . '/system/extensions/">' . __('View extensions') . '</a>'
+							);
+							break;
+						}
+					}
+				}
+
 				// Check for update Alert
 				// Scan install/migrations directory for the most recent updater and compare
 				if(file_exists(DOCROOT . '/install/index.php') && $this->__canAccessAlerts()) {
@@ -189,7 +205,7 @@
 						include_once(DOCROOT . '/install/migrations/' . $migration_file);
 
 						$migration_class = 'migration_' . str_replace('.', '', substr($migration_file, 0, -4));
-						$migration_version = $migration_class::getVersion();
+						$migration_version = call_user_func(array($migration_class, 'getVersion'));
 
 						$current_version = Symphony::Configuration()->get('version', 'symphony');
 
@@ -209,20 +225,6 @@
 					}
 
 					$this->Page->pageAlert($message, Alert::NOTICE);
-				}
-
-				// Do any extensions need updating?
-				$extensions = Symphony::ExtensionManager()->listInstalledHandles();
-				if(is_array($extensions) && !empty($extensions) && $this->__canAccessAlerts()) {
-					foreach($extensions as $name) {
-						$about = Symphony::ExtensionManager()->about($name);
-						if(in_array(EXTENSION_REQUIRES_UPDATE,$about['status'])) {
-							$this->Page->pageAlert(
-								__('An extension requires updating.') . ' <a href="' . SYMPHONY_URL . '/system/extensions/">' . __('View extensions') . '</a>'
-							);
-							break;
-						}
-					}
 				}
 
 				$this->Page->build($this->_callback['context']);
