@@ -127,26 +127,26 @@
 			// Ensure that the table has a 'value' column
 			if((boolean)Symphony::Database()->fetchVar('Field', 0, sprintf("
 					SHOW COLUMNS FROM `tbl_entries_data_%d` LIKE '%s'
-				", $this->get('dynamic_options'), 'value'
+				", FieldManager::lookup()->getId($this->get('dynamic_options')), 'value'
 			))) {
 				$results = Symphony::Database()->fetchCol('value', sprintf("
 						SELECT DISTINCT `value`
 						FROM `tbl_entries_data_%d`
 						ORDER BY `value` ASC
-					", $this->get('dynamic_options')
+					", FieldManager::lookup()->getId($this->get('dynamic_options'))
 				));
 			}
 
 			// In the case of a Upload field, use 'file' instead of 'value'
 			if(($results == false) && (boolean)Symphony::Database()->fetchVar('Field', 0, sprintf("
 					SHOW COLUMNS FROM `tbl_entries_data_%d` LIKE '%s'
-				", $this->get('dynamic_options'), 'file'
+				", FieldManager::lookup()->getId($this->get('dynamic_options')), 'file'
 			))) {
 				$results = Symphony::Database()->fetchCol('file', sprintf("
 						SELECT DISTINCT `file`
 						FROM `tbl_entries_data_%d`
 						ORDER BY `file` ASC
-					", $this->get('dynamic_options')
+					", FieldManager::lookup()->getId($this->get('dynamic_options'))
 				));
 			}
 
@@ -202,7 +202,11 @@
 
 				$fields = array();
 				foreach($group['fields'] as $f){
-					if($f->get('id') != $this->get('id') && $f->canPrePopulate()) $fields[] = array($f->get('id'), ($this->get('dynamic_options') == $f->get('id')), $f->get('label'));
+					if($f->get('id') != $this->get('id') && $f->canPrePopulate()) $fields[] = array(
+						FieldManager::lookup()->getHash($f->get('id')),
+						(FieldManager::lookup()->getId($this->get('dynamic_options')) == $f->get('id')),
+						$f->get('label')
+					);
 				}
 
 				if(is_array($fields) && !empty($fields)) $options[] = array('label' => $group['section']->get('name'), 'options' => $fields);
@@ -259,21 +263,25 @@
 
 			$fields = array();
 
-			$fields['field_id'] = $id;
+			// $fields['field_id'] = $id;
 			if($this->get('static_options') != '') $fields['static_options'] = $this->get('static_options');
+
+			// store the hash:
 			if($this->get('dynamic_options') != '') $fields['dynamic_options'] = $this->get('dynamic_options');
 			$fields['allow_multiple_selection'] = ($this->get('allow_multiple_selection') ? $this->get('allow_multiple_selection') : 'no');
 			$fields['sort_options'] = $this->get('sort_options') == 'yes' ? 'yes' : 'no';
 			$fields['show_association'] = $this->get('show_association') == 'yes' ? 'yes' : 'no';
 
-			Symphony::Database()->query("DELETE FROM `tbl_fields_".$this->handle()."` WHERE `field_id` = '$id' LIMIT 1");
+			if(!FieldManager::saveSettings($this->get('id'), $fields)) return false;
 
-			if(!Symphony::Database()->insert($fields, 'tbl_fields_' . $this->handle())) return false;
+/*			Symphony::Database()->query("DELETE FROM `tbl_fields_".$this->handle()."` WHERE `field_id` = '$id' LIMIT 1");
+
+			if(!Symphony::Database()->insert($fields, 'tbl_fields_' . $this->handle())) return false;*/
 
 			$this->removeSectionAssociation($id);
 
 			// Dynamic Options isn't an array like in Select Box Link
-			$field_id = $this->get('dynamic_options');
+			$field_id = FieldManager::lookup()->getId($this->get('dynamic_options'));
 
 			if (!is_null($field_id)) {
 				$this->createSectionAssociation(NULL, $id, $field_id, $this->get('show_association') == 'yes' ? true : false);

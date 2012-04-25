@@ -63,16 +63,8 @@ class Lookup
 	 */
 	public function save($hash)
 	{
-		switch($this->_type)
-		{
-			case self::LOOKUP_PAGES :
-				{
-					Symphony::Database()->insert(array('hash'=>$hash), 'tbl_lookup_pages');
-                    return Symphony::Database()->getInsertID();
-					break;
-				}
-		}
-		return false;
+		Symphony::Database()->insert(array('hash'=>$hash), 'tbl_lookup_'.$this->_type);
+		return Symphony::Database()->getInsertID();
 	}
 
 	/**
@@ -84,20 +76,13 @@ class Lookup
 	 */
 	public function delete($idOrHash)
 	{
-		switch($this->_type)
+		if(is_numeric($idOrHash) && strlen($idOrHash) != 32)
 		{
-			case self::LOOKUP_PAGES :
-				{
-					if(is_numeric($idOrHash) && strlen($idOrHash) != 32)
-					{
-						// Assume it's an ID
-						Symphony::Database()->delete('tbl_lookup_pages', '`id` = '.$idOrHash);
-					} else {
-						// Assume it's a hash
-						Symphony::Database()->delete('tbl_lookup_pages', '`hash` = \''.$idOrHash.'\'');
-					}
-					break;
-				}
+			// Assume it's an ID
+			Symphony::Database()->delete('tbl_lookup_'.$this->_type, '`id` = '.$idOrHash);
+		} else {
+			// Assume it's a hash
+			Symphony::Database()->delete('tbl_lookup_'.$this->_type, '`hash` = \''.$idOrHash.'\'');
 		}
 	}
 
@@ -115,7 +100,7 @@ class Lookup
 		if(!isset($this->_cache['hash'][$key]))
 		{
 			$this->_cache['hash'][$key] = Symphony::Database()->fetchVar('id', 0,
-				sprintf('SELECT `id` FROM `tbl_lookup_pages` WHERE `hash` = \'%s\';', $hash));
+				sprintf('SELECT `id` FROM `tbl_lookup_%s` WHERE `hash` = \'%s\';', $this->_type, $hash));
 		}
 		return $this->_cache['hash'][$key];
 	}
@@ -132,7 +117,7 @@ class Lookup
 		if(!isset($this->_cache['id'][$id]))
 		{
 			$this->_cache['id'][$id] = Symphony::Database()->fetchVar('hash', 0,
-				sprintf('SELECT `hash` FROM `tbl_lookup_pages` WHERE `id` = %d;', $id));
+				sprintf('SELECT `hash` FROM `tbl_lookup_%s` WHERE `id` = %d;', $this->_type, $id));
 		}
 		return $this->_cache['id'][$id];
 	}
@@ -144,7 +129,7 @@ class Lookup
      */
     public function getAllHashes()
     {
-        return Symphony::Database()->fetchCol('hash', 'SELECT `hash` FROM `tbl_lookup_pages`;');
+		return Symphony::Database()->fetchCol('hash', 'SELECT `hash` FROM `tbl_lookup_'.$this->_type.'`;');
     }
 
 }

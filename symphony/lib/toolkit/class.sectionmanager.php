@@ -6,7 +6,7 @@
 	/**
 	 * The `SectionManager` is responsible for managing all Sections in a Symphony
 	 * installation by exposing basic CRUD operations. Sections are stored in the
-	 * database in `tbl_sections`.
+	 * `workspace/sections`-folder.
 	 */
 	include_once(TOOLKIT . '/class.section.php');
 
@@ -21,21 +21,155 @@
 		protected static $_pool = array();
 
 		/**
+		 * Return a reference to the sections index
+		 *
+		 * @return Index
+		 */
+		public static function index()
+		{
+			return Index::init(Index::INDEX_SECTIONS);
+		}
+
+		/**
+		 * Return a reference to the sections lookup
+		 *
+		 * @return Lookup
+		 */
+		public static function lookup()
+		{
+			return Lookup::init(Lookup::LOOKUP_SECTIONS);
+		}
+
+		/**
 		 * Takes an associative array of Section settings and creates a new
-		 * entry in the `tbl_sections` table, returning the ID of the Section.
+		 * Section XML file, returning the internal ID of the Section.
 		 * The ID of the section is generated using auto_increment and returned
 		 * as the Section ID.
 		 *
 		 * @param array $settings
 		 *  An associative of settings for a section with the key being
-		 *  a column name from `tbl_sections`
+		 *  an element name in the Section XML file.
 		 * @return integer
 		 *  The newly created Section's ID
 		 */
 		public static function add(array $settings){
-			if(!Symphony::Database()->insert($settings, 'tbl_sections')) return false;
+			$hash = self::__generateSectionXML($settings);
 
-			return Symphony::Database()->getInsertID();
+			$id   = self::lookup()->save($hash);
+			return $id;
+		}
+
+		/**
+		 * Generate the Section XML
+		 *
+		 * @param $fields
+		 *  Associative array of fields names => values for the Section
+		 * @return string
+		 *  The unique hash of this section
+		 */
+		private function __generateSectionXML($fields)
+		{
+			// Generate Section XML-file:
+			// Generate a unique hash, this only happens the first time this page is created:
+			if(!isset($fields['unique_hash']))
+			{
+				$fields['unique_hash'] = md5('section'.$fields['name'].time());
+			}
+
+			// Generate fields XML:
+			$fields_str = '';
+			// Generate the main XML:
+			$dom = new DOMDocument();
+			$dom->preserveWhiteSpace = false;
+			$dom->formatOutput = true;
+			$dom->loadXML(sprintf('
+				<section>
+					<name handle="%6$s">%1$s</name>
+					<sortorder>%7$s</sortorder>
+					<hidden>%2$s</hidden>
+					<navigation_group>%3$s</navigation_group>
+					<unique_hash>%4$s</unique_hash>
+					<fields>%5$s</fields>
+				</section>
+				',
+				$fields['name'],
+				(isset($fields['hidden']) ? $fields['hidden'] : 'no'),
+				$fields['navigation_group'],
+				$fields['unique_hash'],
+				$fields_str,
+				General::createHandle($fields['name']),
+				$fields['sortorder']
+			));
+
+			// Save the XML:
+			self::__saveXMLFile(General::createHandle($fields['name']), $dom->saveXML());
+
+			return $fields['unique_hash'];
+		}
+
+		/**
+		 * Save a section XML file
+		 *
+		 * @param $handle
+		 *  The handle of the section
+		 * @param $xml
+		 *  The XML data
+		 * @return bool
+		 *  true on success, false on failure
+		 */
+		public static function __saveXMLFile($handle, $xml, $reIndex = true)
+		{
+			$ok = General::writeFile(WORKSPACE.'/sections/'.$handle.'.xml', $xml,
+				Symphony::Configuration()->get('write_mode', 'file')
+			);
+			if($reIndex)
+			{
+				// Re-index (since the XML files are changed):
+				// Todo: optimize the code with a save-function at the end?
+				self::index()->reIndex();
+			}
+			return $ok;
+		}
+
+		/**
+		 * Save the section to an XML file according to it's ID.
+		 *
+		 * @param $section_id
+		 *  The ID of the section
+		 * @param $reIndex
+		 *  Is a reIndex required?
+		 * @return bool
+		 *  true on success, false on failure
+		 */
+		public static function saveSection($section_id, $reIndex = true)
+		{
+			$hash   = self::lookup()->getHash($section_id);
+			$handle = self::index()->xpath(
+				sprintf('section[unique_hash=\'%s\']/name/@handle', $hash), true
+			);
+			return self::__saveXMLFile($handle,
+				self::index()->getFormattedXML(sprintf('section[unique_hash=\'%s\']', $hash)), $reIndex
+			);
+		}
+
+		/**
+		 * This function checks if sections are added, edited or deleted outside Symphony
+		 */
+		public static function checkIndex()
+		{
+			if(self::index()->isDirty())
+			{
+				$callback = Administration::instance()->getPageCallback();
+				if($callback['driver'] != 'login')
+				{
+					// The index is dirty. Show a message to go to the diff page.
+					Administration::instance()->Page->pageAlert(
+						sprintf(__('One or more sections are modified outside of Symphony. <a href="%s">Show differences</a>'),
+						SYMPHONY_URL.'/blueprints/sections/diff/'),
+						Alert::ERROR
+					);
+				}
+			}
 		}
 
 		/**
@@ -48,11 +182,34 @@
 		 *  The ID of the Section to edit
 		 * @param array $settings
 		 *  An associative of settings for a section with the key being
-		 *  a column name from `tbl_sections`
+		 *  an element in the Section XML file.
 		 * @return boolean
 		 */
 		public static function edit($section_id, array $settings){
-			if(!Symphony::Database()->update($settings, 'tbl_sections', " `id` = $section_id")) return false;
+
+			$hash = self::lookup()->getHash($section_id);
+
+			$old_handle = self::index()->xpath(sprintf('section[unique_hash=\'%s\']/name/@handle', $hash), true);
+
+			// Edit the index:
+			foreach($settings as $key => $value)
+			{
+				if($key != 'handle')
+				{
+					self::index()->editValue(sprintf('section[unique_hash=\'%s\']/%s', $hash, $key), $value);
+				} else {
+					self::index()->editAttribute(sprintf('section[unique_hash=\'%s\']/name', $hash, $key), 'handle', $value);
+				}
+			}
+
+			// Delete the old XML:
+			General::deleteFile(WORKSPACE.'/sections/'.$old_handle.'.xml');
+
+			// Save the new XML:
+			self::__saveXMLFile(
+				self::index()->xpath(sprintf('section[unique_hash=\'%s\']/name/@handle', $hash), true),
+				self::index()->getFormattedXML(sprintf('section[unique_hash=\'%s\']', $hash))
+			);
 
 			return true;
 		}
@@ -67,7 +224,10 @@
 		 *  Returns true when completed
 		 */
 		public static function delete($section_id){
-			$details = Symphony::Database()->fetchRow(0, "SELECT `sortorder` FROM tbl_sections WHERE `id` = '$section_id'");
+
+			$hash 		= self::lookup()->getHash($section_id);
+			$section    = self::fetchByXPath(sprintf('section[unique_hash=\'%s\']', $hash));
+			//$sortorder	= self::index()->xpath(sprintf('section[unique_hash=\'%s\']/sortorder', $hash), true);
 
 			// Delete all the entries
 			include_once(TOOLKIT . '/class.entrymanager.php');
@@ -81,16 +241,82 @@
 				foreach($fields as $field) FieldManager::delete($field->get('id'));
 			}
 
-			// Delete the section
-			Symphony::Database()->delete('tbl_sections', " `id` = '$section_id'");
+			// Delete the section file:
+			unlink(WORKSPACE.'/sections/'.$section->get('handle').'.xml');
 
-			// Update the sort orders
-			Symphony::Database()->query("UPDATE tbl_sections SET `sortorder` = (`sortorder` - 1) WHERE `sortorder` > '".$details['sortorder']."'");
+			// Update the sort orders?
+			// Todo: is this necessary?
 
-			// Delete the section associations
-			Symphony::Database()->delete('tbl_sections_association', " `parent_section_id` = '$section_id'");
+			// Delete the section associations:
+			$sections = self::index()->fetch(
+				sprintf('section/associations/association[parent_section=\'%s\']', $hash)
+			);
+			foreach($sections as $section)
+			{
+				self::index()->removeNode(sprintf('associations/association[parent_section=\'%s\']', (string)$section->unique_hash));
+				// Save the section:
+				self::saveSection(self::lookup()->getId((string)$section->unique_hash));
+			}
+
+			// Delete the section lookup:
+			self::lookup()->delete($hash);
+
+			// ReIndex:
+			self::index()->reIndex();
 
 			return true;
+		}
+
+		/**
+		 * This function will return an array of Section Objects or a single Section.
+		 * Optionally, the `$xpath`, `$order_by` and `$order_direction` parameters
+		 * allow a developer to further refine their query.
+		 *
+		 * @param string $xpath (optional)
+		 *  A XPath expression to filter sections out of the Sections Index.
+		 * @param string $order_by (optional)
+		 *  Allows a developer to return the Sections in a particular order. If omitted
+		 *  this will return sections ordered by `sortorder`.
+		 * @param string $order_direction (optional)
+		 *  The direction to order (`asc` or `desc`)
+		 *  Defaults to `asc`
+		 * @return Section|array
+		 *  A Section object or an array of Section objects
+		 */
+		public static function fetchByXPath($xpath = 'section', $order_by = 'sortorder', $order_direction = 'asc') {
+			$_sections = self::index()->fetch($xpath, $order_by, $order_direction);
+
+			$returnSingle = false;
+
+			if($xpath != 'section') {
+				if(count($_sections) == 1) {
+					$returnSingle = true;
+				}
+			}
+
+			$ret = array();
+
+			foreach($_sections as $s){
+				$obj = self::create();
+
+				$obj->set('name', 				(string)$s->name);
+				$obj->set('handle', 			(string)$s->name['handle']);
+				$obj->set('sortorder',			(string)$s->sortorder);
+				$obj->set('hidden',				(string)$s->hidden);
+				$obj->set('navigation_group',	(string)$s->navigation_group);
+				$obj->set('unique_hash',		(string)$s->unique_hash);
+
+				$obj->set('id', self::lookup()->getId((string)$s->unique_hash));
+
+				// Todo: entry_order?
+				// Todo: entry_order_direction?
+
+				self::$_pool[$obj->get('id')] = $obj;
+
+				$ret[] = $obj;
+			}
+
+			return (count($ret) == 1 && $returnSingle ? $ret[0] : $ret);
 		}
 
 		/**
@@ -100,62 +326,32 @@
 		 * field. By default, Sections will be order in ascending order by
 		 * their name
 		 *
+		 * @deprecated since 2.4
+		 *
 		 * @param integer|array $section_id
 		 *  The ID of the section to return, or an array of ID's. Defaults to null
 		 * @param string $order
 		 *  If `$section_id` is omitted, this is the sortorder of the returned
 		 *  objects. Defaults to ASC, other options id DESC
 		 * @param string $sortfield
-		 *  The name of the column in the `tbl_sections` table to sort
+		 *  The name of the element name in the Sections' XML File to sort
 		 *  on. Defaults to name
 		 * @return Section|array
 		 *  A Section object or an array of Section objects
 		 */
 		public static function fetch($section_id = null, $order = 'ASC', $sortfield = 'name'){
-			$returnSingle = false;
-			$section_ids = array();
 
-			if(!is_null($section_id)) {
-				if(!is_array($section_id)) {
-					$returnSingle = true;
-					$section_ids = array((int)$section_id);
-				}
-				else {
-					$section_ids = $section_id;
-				}
+			if($section_id == null)
+			{
+				return self::fetchByXPath();
+			} else {
+				$_hash = self::lookup()->getHash($section_id);
+				return self::fetchByXPath(
+					sprintf('section[unique_hash=\'%s\']', $_hash),
+					trim(strtolower($sortfield)),
+					trim(strtolower($order))
+				);
 			}
-
-			if($returnSingle && isset(self::$_pool[$section_id])){
-				return self::$_pool[$section_id];
-			}
-
-			$sql = sprintf("
-					SELECT `s`.*
-					FROM `tbl_sections` AS `s`
-					%s
-					%s
-				",
-				!empty($section_id) ? " WHERE `s`.`id` IN (" . implode(',', $section_ids) . ") " : "",
-				empty($section_id) ? " ORDER BY `s`.`$sortfield` $order" : ""
-			);
-
-			if(!$sections = Symphony::Database()->fetch($sql)) return ($returnSingle ? false : array());
-
-			$ret = array();
-
-			foreach($sections as $s){
-				$obj = self::create();
-
-				foreach($s as $name => $value){
-					$obj->set($name, $value);
-				}
-
-				self::$_pool[$obj->get('id')] = $obj;
-
-				$ret[] = $obj;
-			}
-
-			return (count($ret) == 1 && $returnSingle ? $ret[0] : $ret);
 		}
 
 		/**
@@ -167,7 +363,8 @@
 		 *  The Section ID
 		 */
 		public static function fetchIDFromHandle($handle){
-			return Symphony::Database()->fetchVar('id', 0, "SELECT `id` FROM `tbl_sections` WHERE `handle` = '$handle' LIMIT 1");
+			return self::lookup()->getId(self::index()->xpath(
+				sprintf('section[name/@handle=\'%s\']/unique_hash', $handle), true));
 		}
 
 		/**
@@ -177,13 +374,7 @@
 		 *  Returns the next sort order
 		 */
 		public static function fetchNextSortOrder(){
-			$next = Symphony::Database()->fetchVar("next", 0, "
-				SELECT
-					MAX(p.sortorder) + 1 AS `next`
-				FROM
-					`tbl_sections` AS p
-				LIMIT 1
-			");
+			$next = self::index()->getMax('sortorder');
 			return ($next ? (int)$next : 1);
 		}
 
@@ -226,15 +417,36 @@
 			$child_field = FieldManager::fetch($child_field_id);
 			$child_section_id = $child_field->get('parent_section');
 
-			$fields = array(
-				'parent_section_id' => $parent_section_id,
-				'parent_section_field_id' => $parent_field_id,
-				'child_section_id' => $child_section_id,
-				'child_section_field_id' => $child_field_id,
-				'hide_association' => ($show_association ? 'no' : 'yes')
-			);
+			$parent_section_hash	= self::lookup()->getHash($parent_section_id);
+			$parent_field_hash		= FieldManager::lookup()->getHash($parent_field_id);
+			$child_section_hash		= self::lookup()->getHash($child_section_id);
+			$child_field_hash		= FieldManager::lookup()->getHash($child_field_id);
 
-			return Symphony::Database()->insert($fields, 'tbl_sections_association');
+			// Save the association in the section XML:
+			// Check if the associations node exists:
+			$nodes = self::index()->xpath(
+				sprintf('section[unique_hash=\'%s\']/associations', $parent_section_hash)
+			);
+			if(empty($nodes))
+			{
+				// Add the associations node:
+				var_dump($parent_field->get('parent_section'));
+				self::index()->xpath(
+					sprintf('section[unique_hash=\'%s\']', $parent_section_hash), true
+				)->addChild('associations');
+			}
+			// Add the association:
+			$node = self::index()->xpath(
+				sprintf('section[unique_hash=\'%s\']/associations', $parent_section_hash), true
+			)->addChild('association');
+
+			$node->addChild('parent_field', $parent_field_hash);
+			$node->addChild('child_section', $child_section_hash);
+			$node->addChild('child_field', $child_field_hash);
+			$node->addChild('show_association', ($show_association ? 'no' : 'yes'));
+
+			// Save the section:
+			return self::saveSection($parent_section_id);
 		}
 
 		/**
@@ -246,7 +458,23 @@
 		 * @return boolean
 		 */
 		public static function removeSectionAssociation($child_field_id) {
-			return Symphony::Database()->delete('tbl_sections_association', sprintf(" `child_section_field_id` = %d ", $child_field_id));
+			// Get the sections with the association:
+			$sections = self::index()->xpath(
+				sprintf('section[associations/association/child_field=\'%s\']', FieldManager::lookup()->getHash($child_field_id))
+			);
+
+			// Remove the nodes:
+			self::index()->removeNode(
+				sprintf('section/associations/association[child_field=\'%s\']', FieldManager::lookup()->getHash($child_field_id))
+			);
+
+			// Save the sections:
+			foreach($sections as $section)
+			{
+				self::saveSection(self::lookup()->getId((string)$section->unique_hash));
+			}
+
+			return true;
 		}
 
 		/**
@@ -267,17 +495,32 @@
 		 * @return array
 		 */
 		public static function fetchAssociatedSections($section_id, $respect_visibility = false) {
-			return Symphony::Database()->fetch(sprintf("
-					SELECT *
-					FROM `tbl_sections_association` AS `sa`, `tbl_sections` AS `s`
-					WHERE `sa`.`parent_section_id` = %d
-					AND `s`.`id` = `sa`.`child_section_id`
-					%s
-					ORDER BY `s`.`sortorder` ASC
-				",
-				$section_id,
-				($respect_visibility) ? "AND `sa`.`hide_association` = 'no'" : ""
-			));
+			$xpath = sprintf('section[unique_hash=\'%s\']/associations/association', self::lookup()->getHash($section_id));
+			if($respect_visibility)
+			{
+				$xpath .= '[show_association=\'yes\']';
+			}
+			$associations = self::index()->xpath($xpath);
+
+			$result = array();
+
+			if(is_array($associations))
+			{
+				foreach($associations as $association)
+				{
+					$result[] = array(
+						'parent_section_id'			=> $section_id,
+						'parent_section_field_id'	=> FieldManager::lookup()->getId((string)$association->parent_field),
+						'child_section_id'			=> self::lookup()->getId((string)$association->child_section),
+						'child_section_field_id'	=> FieldManager::lookup()->getId((string)$association->child_field),
+						'show_association' 			=> (string)$association->show_assocation,
+						// For backward compatibility:
+						'hide_association'			=> ((string)$association->show_assocation == 'no' ? 'yes' : 'no')
+					);
+				}
+			}
+
+			return $result;
 		}
 
 	}
