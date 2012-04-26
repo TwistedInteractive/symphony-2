@@ -596,7 +596,7 @@
 				foreach(array('id', 'date', 'author') as $p){
 					$optgroup['options'][] = array(
 						'system:' . $p,
-						($fields['source'] == $section_data['section']->get('id') && in_array('system:' . $p, $fields['param'])),
+						($fields['source'] == 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id')) && in_array('system:' . $p, $fields['param'])),
 						$prefix . 'system-' . $p
 					);
 				}
@@ -610,7 +610,7 @@
 
 						$optgroup['options'][] = array(
 							$input->get('element_name'),
-							($fields['source'] == $section_data['section']->get('id') && in_array($input->get('element_name'), $fields['param'])),
+							($fields['source'] == 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id')) && in_array($input->get('element_name'), $fields['param'])),
 							$prefix . $input->get('element_name')
 						);
 					}
