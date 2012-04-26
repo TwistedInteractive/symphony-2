@@ -1334,15 +1334,72 @@
 										}
 								}
 							}
-							// Todo: check parent
 
-							// Todo: check for duplicate handle
+							// Check if parent exists:
+							$localParent = (string)$localPage->parent;
+							if(!empty($localParent) && count($localIndex->xpath(sprintf('page[unique_hash=\'%s\']', $localParent))) == 0)
+							{
+								$error = true;
+								$changes->appendChild(
+									new XMLElement('li', __('The parent page is not found.'))
+								);
+								$rowClass = 'error';
+							}
 
-							// Todo: check for duplicate index
+							// Check for duplicate handle:
+							$localPath = (string)$localPage->path;
+							$localHandle = (string)$localPage->title['handle'];
+							if(count($localIndex->xpath(sprintf('page[path=\'%s\' and title/@handle=\'%s\']', $localPath, $localHandle))) > 1)
+							{
+								$error = true;
+								$changes->appendChild(
+									new XMLElement('li', __('Duplicate handle found for this level.'))
+								);
+								$rowClass = 'error';
+							}
 
-							// Todo: check filename
-							
-							// Todo: check if the template exists
+							// Check that there is only 1 index-type:
+							if(count($localIndex->xpath('page/types/type')) > 1)
+							{
+								$error = true;
+								$changes->appendChild(
+									new XMLElement('li', __('Only one page can be of type <em>\'index\'</em>.'))
+								);
+								$rowClass = 'error';
+							}
+
+							// Check if the pages XML file and path matches it's handle:
+							$filename = !empty($localPath) ? str_replace('/', '_', $localPath).'_'.$localHandle : $localHandle;
+							if(!file_exists(WORKSPACE.'/pages/'.$filename.'.xml'))
+							{
+								$error = true;
+								$changes->appendChild(
+									new XMLElement('li', sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>.'), $filename))
+								);
+								$rowClass = 'error';
+							} else {
+								// Extra check to make sure that this is the correct XML-file (since we are working with the
+								// index, we don't know the filename by hand:
+								$xml = simplexml_load_file(WORKSPACE.'/pages/'.$filename.'.xml');
+								if((string)$xml->unique_hash != (string)$localPage->unique_hash)
+								{
+									$error = true;
+									$changes->appendChild(
+										new XMLElement('li', sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>, or the handle should be adjusted to correspond with the filename.'),
+										$filename))
+									);
+									$rowClass = 'error';
+								}
+							}
+							// Check if there is a matching XSL-file:
+							if(!file_exists(WORKSPACE.'/pages/'.$filename.'.xsl'))
+							{
+								$error = true;
+								$changes->appendChild(
+									new XMLElement('li', sprintf(__('Template not found: <em>\'%s.xsl\'</em>.'), $filename))
+								);
+								$rowClass = 'error';
+							}
 
 							$localRow->appendChild($changes);
 						}
@@ -1383,7 +1440,7 @@
 
 						// Check if the parent exists:
 						$localParent = (string)$localPage->parent;
-						if(!empty($parent) && count($localIndex->xpath(sprintf('page[unique_hash=\'%s\']', $localParent))) == 0)
+						if(!empty($localParent) && count($localIndex->xpath(sprintf('page[unique_hash=\'%s\']', $localParent))) == 0)
 						{
 							$ok = false;
 							$error = true;
