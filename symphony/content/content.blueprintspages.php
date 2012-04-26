@@ -1646,15 +1646,18 @@
 						PageManager::lookup()->getId((string)$cachedPage->unique_hash), $data
 					);
 				} else {
-					// Section not found in local index, section is going to be deleted:
+					// Page not found in local index, page is going to be deleted:
 					PageManager::delete(
 						PageManager::lookup()->getId((string)$cachedPage->unique_hash)
 					);
+					// Manually delete the ID in the lookup table (since the delete function in the PageManager
+					// will return false if the XML and XSL files are not found to be deleted for):
+					PageManager::lookup()->delete((string)$cachedPage->unique_hash);
 				}
 				$foundPages[] = (string)$cachedPage->unique_hash;
 			}
 
-			// Check the local sections (to see if there are sections added):
+			// Check the local pages (to see if there are pages added):
 			foreach($localIndex->xpath('page') as $localPage)
 			{
 				if(!in_array((string)$localPage->unique_hash, $foundPages))
