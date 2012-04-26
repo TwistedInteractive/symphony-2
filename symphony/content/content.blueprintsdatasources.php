@@ -677,7 +677,7 @@
 					'options' => array(
 						array(
 							'system:pagination',
-							($fields['source'] == $section_data['section']->get('id') && in_array('system:pagination', $fields['xml_elements'])),
+							($fields['source'] == 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id')) && in_array('system:pagination', $fields['xml_elements'])),
 							'system: pagination'
 						)
 					)
