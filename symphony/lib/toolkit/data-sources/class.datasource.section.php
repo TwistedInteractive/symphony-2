@@ -280,16 +280,26 @@
 
 			// Create a pool of all fields:
 			$ids = array();
-			foreach($this->dsParamFILTERS as $field_hash => $filter)
+			foreach($this->dsParamFILTERS as $key => $filter)
 			{
-				$ids[] = FieldManager::lookup()->getId($field_hash);
+				// Todo: make a more solid check to detect a hash:
+				if(strlen($key)==32)
+				{
+					$ids[] = FieldManager::lookup()->getId($key);
+				} else {
+					$ids[] = $key;
+				}
 			}
+
 			$pool = FieldManager::fetch($ids);
 			self::$_fieldPool += $pool;
 
 			foreach($this->dsParamFILTERS as $field_id => $filter){
 
-				$field_id = FieldManager::lookup()->getId($field_id);
+				if(strlen($field_id)==32)
+				{
+					$field_id = FieldManager::lookup()->getId($field_id);
+				}
 
 				if((is_array($filter) && empty($filter)) || trim($filter) == '') continue;
 
