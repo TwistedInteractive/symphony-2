@@ -1237,6 +1237,8 @@
 
 							if ($params['associatedentrycounts'] == NULL) $params['associatedentrycounts'] = 'no';
 
+							$source = 'section:'.SectionManager::lookup()->getHash($source);
+
 							break;
 					}
 
@@ -1250,7 +1252,7 @@
 					}
 					
 					$dsShell = str_replace('<!-- CLASS EXTENDS -->', $extends, $dsShell);
-					$dsShell = str_replace('<!-- SOURCE -->', 'section:'.SectionManager::lookup()->getHash($source), $dsShell);
+					$dsShell = str_replace('<!-- SOURCE -->', $source, $dsShell);
 				}
 
 				if($this->_context[0] == 'new') {
