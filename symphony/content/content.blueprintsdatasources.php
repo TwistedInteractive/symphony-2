@@ -490,9 +490,11 @@
 			);
 
 			foreach($field_groups as $section_id => $section_data){
+				$lookupName = 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id'));
+
 				$optgroup = array('label' => General::sanitize($section_data['section']->get('name')), 'options' => array(
-					array('system:id', ($fields['source'] == $section_data['section']->get('id') && $fields['sort'] == 'system:id'), __('System ID')),
-					array('system:date', ($fields['source'] == $section_data['section']->get('id') && $fields['sort'] == 'system:date'), __('System Date')),
+					array('system:id', ($fields['source'] == $lookupName && $fields['sort'] == 'system:id'), __('System ID')),
+					array('system:date', ($fields['source'] == $lookupName && $fields['sort'] == 'system:date'), __('System Date')),
 				));
 
 				if(is_array($section_data['fields']) && !empty($section_data['fields'])){
@@ -502,7 +504,7 @@
 
 						$optgroup['options'][] = array(
 							$input->get('element_name'),
-							($fields['source'] == $section_data['section']->get('id') && $input->get('element_name') == $fields['sort']),
+							($fields['source'] == $lookupName && $input->get('element_name') == $fields['sort']),
 							$input->get('label')
 						);
 					}
