@@ -278,10 +278,18 @@
 		public function processFilters(&$where, &$joins, &$group) {
 			if(!is_array($this->dsParamFILTERS) || empty($this->dsParamFILTERS)) return;
 
-			$pool = FieldManager::fetch(array_keys($this->dsParamFILTERS));
+			// Create a pool of all fields:
+			$ids = array();
+			foreach($this->dsParamFILTERS as $field_hash => $filter)
+			{
+				$ids[] = FieldManager::lookup()->getId($field_hash);
+			}
+			$pool = FieldManager::fetch($ids);
 			self::$_fieldPool += $pool;
 
 			foreach($this->dsParamFILTERS as $field_id => $filter){
+
+				$field_id = FieldManager::lookup()->getId($field_id);
 
 				if((is_array($filter) && empty($filter)) || trim($filter) == '') continue;
 

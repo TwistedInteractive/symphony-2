@@ -336,6 +336,7 @@
 						$lookupName = 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id'));
 
 						// Check according to the field hash (since it's the hash which is stored in the datasource):
+						// Todo: it would be more elegent to use the fields' element_name instead of the hash...
 						if(isset($fields['filter'][$lookupName][FieldManager::lookup()->getHash($input->get('id'))])){
 							$wrapper = new XMLElement('li');
 							$wrapper->setAttribute('class', 'unique');
