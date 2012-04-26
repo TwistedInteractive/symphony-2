@@ -506,8 +506,10 @@
 			if($can_proceed) {
 				// Delete from lookup table:
 				self::lookup()->delete($page_id);
-
 			}
+
+			// Reindex (since there are files deleted now):
+			self::index()->reIndex();
 
 			return $can_proceed;
 		}

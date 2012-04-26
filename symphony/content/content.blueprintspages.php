@@ -1359,7 +1359,7 @@
 							}
 
 							// Check that there is only 1 index-type:
-							if(count($localIndex->xpath('page/types/type')) > 1)
+							if(count($localIndex->xpath('page[types/type=\'index\']')) > 1)
 							{
 								$error = true;
 								$changes->appendChild(
@@ -1460,7 +1460,7 @@
 						}
 
 						// Check that there is only 1 index-type:
-						if(count($localIndex->xpath('page/types/type')) > 1)
+						if(count($localIndex->xpath('page[types/type=\'index\']')) > 1)
 						{
 							$ok = false;
 							$error = true;
