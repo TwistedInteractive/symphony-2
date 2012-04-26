@@ -278,6 +278,8 @@
 			$fieldset->appendChild($p);
 
 			foreach($field_groups as $section_id => $section_data){
+				$lookupName = 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id'));
+
 				$div = new XMLElement('div');
 				$div->setAttribute('class', 'contextual ' . $section_data['section']->get('id'));
 
@@ -287,13 +289,13 @@
 				$ol->setAttribute('data-remove', __('Remove filter'));
 
 				// Add system:id filter
-				if(isset($fields['filter'][$section_data['section']->get('id')]['id'])){
+				if(isset($fields['filter'][$lookupName]['id'])){
 					$li = new XMLElement('li');
 					$li->setAttribute('class', 'unique');
 					$li->setAttribute('data-type', 'id');
 					$li->appendChild(new XMLElement('header', '<h4>' . __('System ID') . '</h4>'));
 					$label = Widget::Label(__('Value'));
-					$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][id]', General::sanitize($fields['filter'][$section_data['section']->get('id')]['id'])));
+					$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][id]', General::sanitize($fields['filter'][$lookupName]['id'])));
 					$li->appendChild($label);
 					$ol->appendChild($li);
 				}
@@ -308,13 +310,13 @@
 				$ol->appendChild($li);
 
 				// Add system:date filter
-				if(isset($fields['filter'][$section_data['section']->get('id')]['system:date'])){
+				if(isset($fields['filter'][$lookupName]['system:date'])){
 					$li = new XMLElement('li');
 					$li->setAttribute('class', 'unique');
 					$li->setAttribute('data-type', 'system:date');
 					$li->appendChild(new XMLElement('header', '<h4>' . __('System Date') . '</h4>'));
 					$label = Widget::Label(__('Value'));
-					$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][system:date]', General::sanitize($fields['filter'][$section_data['section']->get('id')]['system:date'])));
+					$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][system:date]', General::sanitize($fields['filter'][$lookupName]['system:date'])));
 					$li->appendChild($label);
 					$ol->appendChild($li);
 				}
@@ -332,8 +334,6 @@
 					foreach($section_data['fields'] as $input){
 						
 						if(!$input->canFilter()) continue;
-
-						$lookupName = 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id'));
 
 						// Check according to the field hash (since it's the hash which is stored in the datasource):
 						// Todo: it would be more elegent to use the fields' element_name instead of the hash...
@@ -1225,7 +1225,14 @@
 								$filters = array();
 
 								foreach($fields['filter'] as $f){
-									foreach($f as $key => $val) $filters[FieldManager::lookup()->getHash($key)] = $val;
+									foreach($f as $key => $val)
+									{
+										if(is_numeric($key))
+										{
+											$key = FieldManager::lookup()->getHash($key);
+										}
+										$filters[$key] = $val;
+									}
 								}
 							}
 
