@@ -330,14 +330,17 @@
 
 				if(is_array($section_data['fields']) && !empty($section_data['fields'])){
 					foreach($section_data['fields'] as $input){
-
+						
 						if(!$input->canFilter()) continue;
 
-						if(isset($fields['filter'][$section_data['section']->get('id')][$input->get('id')])){
+						$lookupName = 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id'));
+
+						// Check according to the field hash (since it's the hash which is stored in the datasource):
+						if(isset($fields['filter'][$lookupName][FieldManager::lookup()->getHash($input->get('id'))])){
 							$wrapper = new XMLElement('li');
 							$wrapper->setAttribute('class', 'unique');
 							$wrapper->setAttribute('data-type', $input->get('element_name'));
-							$input->displayDatasourceFilterPanel($wrapper, $fields['filter'][$section_data['section']->get('id')][$input->get('id')], $this->_errors[$input->get('id')], $section_data['section']->get('id'));
+							$input->displayDatasourceFilterPanel($wrapper, $fields['filter'][$lookupName][FieldManager::lookup()->getHash($input->get('id'))], $this->_errors[$input->get('id')], $section_data['section']->get('id'));
 							$ol->appendChild($wrapper);
 						}
 
@@ -1219,7 +1222,7 @@
 								$filters = array();
 
 								foreach($fields['filter'] as $f){
-									foreach($f as $key => $val) $filters[$key] = $val;
+									foreach($f as $key => $val) $filters[FieldManager::lookup()->getHash($key)] = $val;
 								}
 							}
 
