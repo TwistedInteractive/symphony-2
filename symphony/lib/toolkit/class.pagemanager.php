@@ -76,17 +76,48 @@
 				$fields['unique_hash'] = md5($fields['title'].time());
 			}
 
+			// For backward compatibility:
+			if(isset($fields['data_sources'])) { $fields['datasources'] = $fields['data_sources']; }
+			if(isset($fields['type'])) { $fields['types'] = $fields['type']; }
+
 			// Generate datasources-xml:
-			$datasources = empty($fields['data_sources']) ? '' :
-				'<datasource>'.implode('</datasource><datasource>', explode(',', $fields['data_sources'])) .'</datasource>';
+			$datasources = '';
+			if(!empty($fields['datasources']))
+			{
+				if(is_array($fields['datasources']))
+				{
+					$datasources = '<datasource>'.implode('</datasource><datasource>', $fields['datasources']).'</datasource>';
+				} elseif(is_string($fields['datasources'])) {
+					// For backward compatibility:
+					$datasources = '<datasource>'.implode('</datasource><datasource>', explode(',', $fields['datasources'])) .'</datasource>';
+				}
+			}
 
 			// Generate events-xml:
-			$events = empty($fields['events']) ? '' :
-				'<event>'.implode('</event><event>', explode(',', $fields['events'])) .'</event>';
+			$events = '';
+			if(!empty($fields['events']))
+			{
+				if(is_array($fields['events']))
+				{
+					$events = '<event>'.implode('</event><event>', $fields['events']).'</event>';
+				} elseif(is_string($fields['datasources'])) {
+					// For backward compatibility:
+					$events = '<event>'.implode('</event><event>', explode(',', $fields['events'])) .'</event>';
+				}
+			}
 
 			// Generate types-xml:
-			$types = empty($fields['type']) ? '' :
-				'<type>'.implode('</type><type>', $fields['type']) .'</type>';
+			$types = '';
+			if(!empty($fields['types']))
+			{
+				if(is_array($fields['types']))
+				{
+					$types = '<type>'.implode('</event><event>', $fields['types']).'</type>';
+				} elseif(is_string($fields['types'])) {
+					// For backward compatibility:
+					$types = '<type>'.implode('</type><type>', explode(',', $fields['types'])) .'</type>';
+				}
+			}
 
 			// Generate the main XML:
 			$dom = new DOMDocument();
@@ -114,7 +145,7 @@
 				$fields['sortorder'],
 				$fields['unique_hash'],
 			    $types,
-			    self::lookup()->getHash($fields['parent'])
+			    (is_numeric($fields['parent']) ? self::lookup()->getHash($fields['parent']) : $fields['parent'])
 			));
 
 			// Save the XML:
@@ -137,7 +168,21 @@
          */
         public static function checkIndex()
         {
-            // First, check if there are duplicate unique hashes. This is ofcourse not done!
+	        if(self::index()->isDirty())
+            {
+                $callback = Administration::instance()->getPageCallback();
+                if($callback['driver'] != 'login')
+                {
+                    // The index is dirty. Show a message to go to the diff page.
+                    Administration::instance()->Page->pageAlert(
+                        sprintf(__('One or more pages are modified outside of Symphony. <a href="%s">Show differences</a>'),
+                        SYMPHONY_URL.'/blueprints/pages/diff/'),
+                        Alert::ERROR
+                    );
+                }
+            }
+
+/*            // First, check if there are duplicate unique hashes. This is ofcourse not done!
             if($_hash = self::index()->hasDuplicateHashes())
             {
                 throw new Exception(__('Duplicate unique hash found in Pages: '.$_hash));
@@ -165,7 +210,7 @@
                     // No page found with this hash, this page is deleted.
                     self::lookup()->delete($_hash);
                 }
-            }
+            }*/
         }
 
 		/**
@@ -461,8 +506,10 @@
 			if($can_proceed) {
 				// Delete from lookup table:
 				self::lookup()->delete($page_id);
-
 			}
+
+			// Reindex (since there are files deleted now):
+			self::index()->reIndex();
 
 			return $can_proceed;
 		}
@@ -1031,6 +1078,7 @@
 				);
 			}
 			$page = $pages[0];
+
 
 			if(empty($page)) return $page;
 

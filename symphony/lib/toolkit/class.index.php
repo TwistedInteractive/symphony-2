@@ -72,7 +72,8 @@ class Index
 				{
 					$this->_path = PAGES.'/*.xml';
 					$this->_element_name = 'pages';
-					$this->reIndex();
+					// Pages are overwritten with $overwrite set to false, to make use of the dirty-flag.
+					$this->reIndex(false);
 					break;
 				}
 			case self::INDEX_SECTIONS :

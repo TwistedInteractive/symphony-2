@@ -278,6 +278,8 @@
 			$fieldset->appendChild($p);
 
 			foreach($field_groups as $section_id => $section_data){
+				$lookupName = 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id'));
+
 				$div = new XMLElement('div');
 				$div->setAttribute('class', 'contextual ' . $section_data['section']->get('id'));
 
@@ -287,13 +289,13 @@
 				$ol->setAttribute('data-remove', __('Remove filter'));
 
 				// Add system:id filter
-				if(isset($fields['filter'][$section_data['section']->get('id')]['id'])){
+				if(isset($fields['filter'][$lookupName]['id'])){
 					$li = new XMLElement('li');
 					$li->setAttribute('class', 'unique');
 					$li->setAttribute('data-type', 'id');
 					$li->appendChild(new XMLElement('header', '<h4>' . __('System ID') . '</h4>'));
 					$label = Widget::Label(__('Value'));
-					$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][id]', General::sanitize($fields['filter'][$section_data['section']->get('id')]['id'])));
+					$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][id]', General::sanitize($fields['filter'][$lookupName]['id'])));
 					$li->appendChild($label);
 					$ol->appendChild($li);
 				}
@@ -308,13 +310,13 @@
 				$ol->appendChild($li);
 
 				// Add system:date filter
-				if(isset($fields['filter'][$section_data['section']->get('id')]['system:date'])){
+				if(isset($fields['filter'][$lookupName]['system:date'])){
 					$li = new XMLElement('li');
 					$li->setAttribute('class', 'unique');
 					$li->setAttribute('data-type', 'system:date');
 					$li->appendChild(new XMLElement('header', '<h4>' . __('System Date') . '</h4>'));
 					$label = Widget::Label(__('Value'));
-					$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][system:date]', General::sanitize($fields['filter'][$section_data['section']->get('id')]['system:date'])));
+					$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][system:date]', General::sanitize($fields['filter'][$lookupName]['system:date'])));
 					$li->appendChild($label);
 					$ol->appendChild($li);
 				}
@@ -330,14 +332,16 @@
 
 				if(is_array($section_data['fields']) && !empty($section_data['fields'])){
 					foreach($section_data['fields'] as $input){
-
+						
 						if(!$input->canFilter()) continue;
 
-						if(isset($fields['filter'][$section_data['section']->get('id')][$input->get('id')])){
+						// Check according to the field hash (since it's the hash which is stored in the datasource):
+						// Todo: it would be more elegent to use the fields' element_name instead of the hash...
+						if(isset($fields['filter'][$lookupName][FieldManager::lookup()->getHash($input->get('id'))])){
 							$wrapper = new XMLElement('li');
 							$wrapper->setAttribute('class', 'unique');
 							$wrapper->setAttribute('data-type', $input->get('element_name'));
-							$input->displayDatasourceFilterPanel($wrapper, $fields['filter'][$section_data['section']->get('id')][$input->get('id')], $this->_errors[$input->get('id')], $section_data['section']->get('id'));
+							$input->displayDatasourceFilterPanel($wrapper, $fields['filter'][$lookupName][FieldManager::lookup()->getHash($input->get('id'))], $this->_errors[$input->get('id')], $section_data['section']->get('id'));
 							$ol->appendChild($wrapper);
 						}
 
@@ -487,9 +491,11 @@
 			);
 
 			foreach($field_groups as $section_id => $section_data){
+				$lookupName = 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id'));
+
 				$optgroup = array('label' => General::sanitize($section_data['section']->get('name')), 'options' => array(
-					array('system:id', ($fields['source'] == $section_data['section']->get('id') && $fields['sort'] == 'system:id'), __('System ID')),
-					array('system:date', ($fields['source'] == $section_data['section']->get('id') && $fields['sort'] == 'system:date'), __('System Date')),
+					array('system:id', ($fields['source'] == $lookupName && $fields['sort'] == 'system:id'), __('System ID')),
+					array('system:date', ($fields['source'] == $lookupName && $fields['sort'] == 'system:date'), __('System Date')),
 				));
 
 				if(is_array($section_data['fields']) && !empty($section_data['fields'])){
@@ -499,7 +505,7 @@
 
 						$optgroup['options'][] = array(
 							$input->get('element_name'),
-							($fields['source'] == $section_data['section']->get('id') && $input->get('element_name') == $fields['sort']),
+							($fields['source'] == $lookupName && $input->get('element_name') == $fields['sort']),
 							$input->get('label')
 						);
 					}
@@ -593,7 +599,7 @@
 				foreach(array('id', 'date', 'author') as $p){
 					$optgroup['options'][] = array(
 						'system:' . $p,
-						($fields['source'] == $section_data['section']->get('id') && in_array('system:' . $p, $fields['param'])),
+						($fields['source'] == 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id')) && in_array('system:' . $p, $fields['param'])),
 						$prefix . 'system-' . $p
 					);
 				}
@@ -607,7 +613,7 @@
 
 						$optgroup['options'][] = array(
 							$input->get('element_name'),
-							($fields['source'] == $section_data['section']->get('id') && in_array($input->get('element_name'), $fields['param'])),
+							($fields['source'] == 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id')) && in_array($input->get('element_name'), $fields['param'])),
 							$prefix . $input->get('element_name')
 						);
 					}
@@ -671,7 +677,7 @@
 					'options' => array(
 						array(
 							'system:pagination',
-							($fields['source'] == $section_data['section']->get('id') && in_array('system:pagination', $fields['xml_elements'])),
+							($fields['source'] == 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id')) && in_array('system:pagination', $fields['xml_elements'])),
 							'system: pagination'
 						)
 					)
@@ -1219,7 +1225,14 @@
 								$filters = array();
 
 								foreach($fields['filter'] as $f){
-									foreach($f as $key => $val) $filters[$key] = $val;
+									foreach($f as $key => $val)
+									{
+										if(is_numeric($key))
+										{
+											$key = FieldManager::lookup()->getHash($key);
+										}
+										$filters[$key] = $val;
+									}
 								}
 							}
 
@@ -1237,6 +1250,8 @@
 
 							if ($params['associatedentrycounts'] == NULL) $params['associatedentrycounts'] = 'no';
 
+							$source = 'section:'.SectionManager::lookup()->getHash($source);
+
 							break;
 					}
 
@@ -1250,7 +1265,7 @@
 					}
 					
 					$dsShell = str_replace('<!-- CLASS EXTENDS -->', $extends, $dsShell);
-					$dsShell = str_replace('<!-- SOURCE -->', 'section:'.SectionManager::lookup()->getHash($source), $dsShell);
+					$dsShell = str_replace('<!-- SOURCE -->', $source, $dsShell);
 				}
 
 				if($this->_context[0] == 'new') {
