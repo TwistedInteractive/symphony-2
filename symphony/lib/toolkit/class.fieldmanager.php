@@ -168,8 +168,10 @@
 				}
 			}*/
 
+
+
 			// Generate the field XML:
-			$field_str = sprintf(
+/*			$field_str = sprintf(
 				'<field>
 					<label>%2$s</label>
 					<element_name>%1$s</element_name>
@@ -188,11 +190,25 @@
 				$fields['sortorder'],
 				$fields['location'],
 				$fields['show_column']
-			);
+			);*/
+
+			// Unset the fields parent section:
+			if(!isset($fields['parent_section'])) { return false; }
+
+			$parent_section = $fields['parent_section'];
+			unset($fields['parent_section']);
+
+			$field_str = '<field>';
+			foreach($fields as $key => $value)
+			{
+				$field_str .= '<'.$key.'>'.$value.'</'.$key.'>';
+			}
+			$field_str.= '</field>';
+
 			$fieldXML = new SimpleXMLElement($field_str);
 
 			// Store the field XML in the section:
-			$section_hash = SectionManager::lookup()->getHash($fields['parent_section']);
+			$section_hash = SectionManager::lookup()->getHash($parent_section);
 
 			if(count(
 				self::index()->xpath(
