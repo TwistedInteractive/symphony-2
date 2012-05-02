@@ -315,7 +315,7 @@
 			)));*/
 
 			$pages = PageManager::fetchByXPath(
-				sprintf('page[unique_hash=\'%s\']', PageManager::index()->getHash($page_id))
+				sprintf('page[unique_hash=\'%s\']', PageManager::lookup()->getHash($page_id))
 			);
 
 			if (is_array($pages) && count($pages) == 1) {
