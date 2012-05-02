@@ -927,168 +927,169 @@
 							$localRow = new XMLElement('td', __('Section is modified:'));
 							// Show changes:
 							$changes = new XMLElement('ul');
-							foreach($cachedSection->children() as $cachedElement)
+							// Validate local section first:
+							$result = $this->__validateSection($localSection);
+							if($result !== true)
 							{
-								// Iterate through each element to detect changes:
-								$name = $cachedElement->getName();
-								if($name != 'fields')
+								// Section does not validate:
+								$changes->appendChild(new XMLElement('li', $result));
+								$error = true;
+								$rowClass = 'error';
+							} else {
+								// Section validates, continue:
+								foreach($cachedSection->children() as $cachedElement)
 								{
-									// See if this element exists in the local section:
-									$localElements = $localSection->xpath($name);
-									if(count($localElements) == 1)
+									// Iterate through each element to detect changes:
+									$name = $cachedElement->getName();
+									if($name != 'fields')
 									{
-										// Local element found, check if there are differences:
-										$localElement = $localElements[0];
-										if($cachedElement->saveXML() != $localElement->saveXML())
+										// See if this element exists in the local section:
+										$localElements = $localSection->xpath($name);
+										if(count($localElements) == 1)
 										{
-											// Not identical:
-											$changes->appendChild(
-												new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> : %s → %s'), $name,
-													(string)$cachedElement,
-													(string)$localElement
-												))
-											);
-										}
-									} else {
-										// Local element not found: throw error, since this is not correct:
-										$changes->appendChild(
-											new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> not found. Changes cannot be accepted.'), $name))
-										);
-										$error = true;
-										$rowClass = 'error';
-									}
-								} else {
-									// This is the fields-node:
-									$foundFields  = array();
-									$cachedFields = $cachedSection->xpath('fields/field');
-									foreach($cachedFields as $cachedField)
-									{
-										// Check to see if the field exists locally:
-										$localFields = $localSection->xpath(
-											sprintf('fields/field[unique_hash=\'%s\']', (string)$cachedField->unique_hash)
-										);
-										if(count($localFields) == 1)
-										{
-											// Field found, check for differences:
-											$localField = $localFields[0];
-											if($cachedField->saveXML() != $localField->saveXML())
+											// Local element found, check if there are differences:
+											$localElement = $localElements[0];
+											if($cachedElement->saveXML() != $localElement->saveXML())
 											{
-												// Field is changed:
-												$li = new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> is changed:'), (string)$cachedField->label));
-												$ul = new XMLElement('ul');
-												// Iterate through the elements:
-												foreach($cachedField->children() as $cachedFieldElement)
-												{
-													// Check if this element exists in the local field:
-													$cachedFieldElementName = $cachedFieldElement->getName();
-													$localFieldElements = $localField->xpath($cachedFieldElementName);
-													if(count($localFieldElements) == 1)
-													{
-														// Field element found, check for differences:
-														$localFieldElement = $localFieldElements[0];
-														if($localFieldElement->saveXML() != $cachedFieldElement->saveXML())
-														{
-															// Difference found:
-															$typeError = false;
-															// Check if the difference is the type of the field:
-															if($cachedFieldElementName == 'type')
-															{
-																// Check if this type exists in the current Symphony installation:
-																if(!in_array((string)$localFieldElement, $availableFieldTypes))
-																{
-																	$ul->appendChild(
-																		new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> has an invalid type. Install the field type first :  <em>\'%s\'</em>'),
-																			$cachedFieldElementName,
-																			(string)$localFieldElement))
-																	);
-																	$error = true;
-																	$typeError = true;
-																	$rowClass = 'error';
-																}
-															}
-															if(!$typeError)
-															{
-																// Show the difference:
-																$ul->appendChild(
-																	new XMLElement('li', sprintf(__('Field element <em>\'%s\'</em> :  %s → %s'),
-																		$cachedFieldElementName,
-																		(string)$cachedFieldElement,
-																		(string)$localFieldElement))
-																);
-															}
-														}
-													} else {
-														// Field element not found: throw error, since this is not correct:
-														$ul->appendChild(
-															new XMLElement('li', sprintf(__('Field element <em>\'%s\'</em> not found. Changes cannot be accepted.'),
-																$cachedFieldElementName))
-														);
-														$error = true;
-														$rowClass = 'error';
-													}
-												}
-												$li->appendChild($ul);
-												$changes->appendChild($li);
+												// Not identical:
+												$changes->appendChild(
+													new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> : %s → %s'), $name,
+														(string)$cachedElement,
+														(string)$localElement
+													))
+												);
 											}
-										} elseif(count($localFields) > 1) {
-											// Fields with duplicate hashes found, this is not allowed:
+										} else {
+											// Local element not found: throw error, since this is not correct:
 											$changes->appendChild(
-												new XMLElement('li', sprintf(__('Duplicate hash found for field <em>\'%s\'</em> (%s). Changes cannot be accepted.'),
-													(string)$cachedField->label,
-													(string)$cachedField->unique_hash
-												))
+												new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> not found. Changes cannot be accepted.'), $name))
 											);
 											$error = true;
 											$rowClass = 'error';
-										} else {
-											// Local field not found, this field is going to be deleted:
-											$changes->appendChild(
-												new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> (including it\'s data) is going to be deleted.'),
-													(string)$cachedField->label))
-											);
-											$rowClass = 'alert';
 										}
-										$foundFields[] = (string)$cachedField->unique_hash;
-									}
-
-									// Check the local fields (to see if there are fields added):
-									foreach($localSection->xpath('fields/field') as $localField)
-									{
-										if(!in_array((string)$localField->unique_hash, $foundFields))
+									} else {
+										// This is the fields-node:
+										$foundFields  = array();
+										$cachedFields = $cachedSection->xpath('fields/field');
+										foreach($cachedFields as $cachedField)
 										{
-											// Check if this fields type is available in this Symphony installation:
-											if(!in_array((string)$localField->type, $availableFieldTypes))
+											// Check to see if the field exists locally:
+											$localFields = $localSection->xpath(
+												sprintf('fields/field[unique_hash=\'%s\']', (string)$cachedField->unique_hash)
+											);
+											if(count($localFields) == 1)
 											{
+												// Field found, check for differences:
+												$localField = $localFields[0];
+												if($cachedField->saveXML() != $localField->saveXML())
+												{
+													// Field is changed:
+													$li = new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> is changed:'), (string)$cachedField->label));
+													$ul = new XMLElement('ul');
+
+													// Check if the field validates:
+													$result = $this->__validateField($localField);
+													if($result !== true)
+													{
+														// Field doesn't validate:
+														$ul->appendChild(new XMLElement('li', $result));
+														$error = true;
+														$rowClass = 'error';
+													} else {
+														// Field validates, show the differences:
+														// Iterate through the elements:
+														foreach($localField->children() as $localFieldElement)
+														{
+															// Check if this element exists in the local field:
+															$localFieldElementName = $localFieldElement->getName();
+															$cachedFieldElements = $cachedField->xpath($localFieldElementName);
+															if(count($cachedFieldElements) == 1)
+															{
+																// Field element found, check for differences:
+																$cachedFieldElement = $cachedFieldElements[0];
+																if($localFieldElement->saveXML() != $cachedFieldElement->saveXML())
+																{
+																	// Difference found:
+																	// Show the difference:
+																	$ul->appendChild(
+																		new XMLElement('li', sprintf(__('Field element <em>\'%s\'</em> :  %s → %s'),
+																			$localFieldElementName,
+																			(string)$cachedFieldElement,
+																			(string)$localFieldElement))
+																	);
+																}
+															} else {
+																// Field setting not found: this setting will be added:
+																$ul->appendChild(
+																	new XMLElement('li', sprintf(__('Field setting <em>\'%s\'</em> will be added.'),
+																		$localFieldElementName))
+																);
+															}
+														}
+													}
+													$li->appendChild($ul);
+													$changes->appendChild($li);
+												}
+											} elseif(count($localFields) > 1) {
+												// Fields with duplicate hashes found, this is not allowed:
 												$changes->appendChild(
-													new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> cannot be installed for this section. Install the field type first :  <em>\'%s\'</em>'),
-														(string)$localField->label,
-														(string)$localField->type))
+													new XMLElement('li', sprintf(__('Duplicate hash found for field <em>\'%s\'</em> (%s). Changes cannot be accepted.'),
+														(string)$cachedField->label,
+														(string)$cachedField->unique_hash
+													))
 												);
 												$error = true;
 												$rowClass = 'error';
 											} else {
-												// Check if this section doesn't already have a field with this handle:
-												if(count($cachedSection->xpath(sprintf('fields/field[label=\'%s\']', (string)$localField->label))) == 0)
+												// Local field not found, this field is going to be deleted:
+												$changes->appendChild(
+													new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> (including it\'s data) is going to be deleted.'),
+														(string)$cachedField->label))
+												);
+												$rowClass = 'alert';
+											}
+											$foundFields[] = (string)$cachedField->unique_hash;
+										}
+
+										// Check the local fields (to see if there are fields added):
+										foreach($localSection->xpath('fields/field') as $localField)
+										{
+											if(!in_array((string)$localField->unique_hash, $foundFields))
+											{
+												// Check if the field validates:
+												$result = $this->__validateField($localField);
+												if($result !== true)
 												{
-													$changes->appendChild(
-														new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> is new and will be added to the section.'),
-															(string)$localField->label))
-													);
-													// $rowClass = 'notice';
-												} else {
-													// There already exists a field with this handle:
-													$changes->appendChild(
-														new XMLElement('li', sprintf(__('This section already has a field with element name <em>\'%s\'</em>.'),
-															(string)$localField->element_name))
-													);
+													// Field doesn't validate:
+													$changes->appendChild(new XMLElement('li', $result));
 													$error = true;
 													$rowClass = 'error';
+												} else {
+													// Field validates:
+													// Check if this section doesn't already have a field with this handle:
+													if(count($localSection->xpath(sprintf('fields/field[element_name=\'%s\']', (string)$localField->element_name))) == 0)
+													{
+														$changes->appendChild(
+															new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> is new and will be added to the section.'),
+																(string)$localField->label))
+														);
+														// $rowClass = 'notice';
+													} else {
+														// There already exists a field with this handle:
+														$changes->appendChild(
+															new XMLElement('li', sprintf(__('This section already has a field with element name <em>\'%s\'</em>.'),
+																(string)$localField->element_name))
+														);
+														$error = true;
+														$rowClass = 'error';
+													}
 												}
 											}
 										}
 									}
 								}
 							}
+
 							$localRow->appendChild($changes);
 						}
 					} elseif(count($localSection) > 1) {
@@ -1115,106 +1116,84 @@
 					if(!in_array((string)$localSection->unique_hash, $foundSections))
 					{
 						$cachedRow = new XMLElement('td', (string)$localSection->name);
-						// Check if the field types used by this sections are available in this Symphony installation:
 						$ok = true;
-						$fieldErrors = new XMLElement('ul');
-						foreach($localSection->xpath('fields/field') as $localField)
+						// Validate the section:
+						$result = $this->__validateSection($localSection);
+						if($result !== true)
 						{
-							// Check if the field is available:
-							if(!in_array((string)$localField->type, $availableFieldTypes))
-							{
-								$ok = false;
-								$fieldErrors->appendChild(
-									new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> cannot be installed for this section. Install the field type first :  <em>\'%s\'</em>'),
-										(string)$localField->label,
-										(string)$localField->type))
-								);
-								$error = true;
-								$rowClass = 'error';
-							}
-							// Check if the field hashes are unique:
-							if(count($cachedIndex->xpath(sprintf('section/fields/field[unique_hash=\'%s\']', (string)$localField->unique_hash))) > 0)
-							{
-								$ok = false;
-								$fieldErrors->appendChild(
-									new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> does not have a unique hash.'),
-										(string)$localField->label))
-								);
-								$error = true;
-								$rowClass = 'error';
-							}
-							// Check if there are no duplicate fields in this section:
-							if(count($localSection->xpath(sprintf('fields/field[element_name=\'%s\']', (string)$localField->element_name))) > 1)
-							{
-								$ok = false;
-								$fieldErrors->appendChild(
-									new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> occurs more than once.'),
-										(string)$localField->label))
-								);
-								$error = true;
-								$rowClass = 'error';
-							}
-						}
-						if(!$ok)
-						{
-							$localRow = new XMLElement('td', __('This section cannot be added because of the following problems:'));
-							$localRow->appendChild($fieldErrors);
-						}
-
-						// Check if the hash of the section is unique:
-						if(count($cachedIndex->xpath(sprintf('section[unique_hash=\'%s\']', (string)$localSection->unique_hash))) > 0)
-						{
-							$ok = false;
+							// Section does not validate:
+							$localRow = new XMLElement('td', $result);
 							$error = true;
-							$localRow = new XMLElement('td', __('Duplicate hash found for this section.'));
-							$rowClass = 'error';
-						}
-
-						// Check if the section name is unique:
-						if(count($cachedIndex->xpath(sprintf('section[name=\'%s\']', (string)$localSection->name))) > 0)
-						{
-							$ok = false;
-							$error = true;
-							$localRow = new XMLElement('td', __('There already exists a section with this name.'));
-							$rowClass = 'error';
-						}
-
-						// Check if the sections' handle matches it's name:
-						if((string)$localSection->name['handle'] != General::createHandle((string)$localSection->name))
-						{
-							$ok = false;
-							$error = true;
-							$localRow = new XMLElement('td', sprintf(__('Invalid handle. The handle must be <em>\'%s\'</em>.'),
-								General::createHandle((string)$localSection->name)));
-							$rowClass = 'error';
-						}
-
-						// Check if the sections XML file matches it's handle:
-						if(!file_exists(WORKSPACE.'/sections/'.General::createHandle((string)$localSection->name).'.xml'))
-						{
-							$ok = false;
-							$error = true;
-							$localRow = new XMLElement('td', sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>.'),
-								General::createHandle((string)$localSection->name)));
 							$rowClass = 'error';
 						} else {
-							// Extra check to make sure that this is the correct XML-file (since we are working with the
-							// index, we don't know the filename by hand:
-							$xml = simplexml_load_file(WORKSPACE.'/sections/'.General::createHandle((string)$localSection->name).'.xml');
-							if((string)$xml->unique_hash != (string)$localSection->unique_hash)
+							// Validate the fields of the section:
+							$fieldErrors = new XMLElement('ul');
+							foreach($localSection->xpath('fields/field') as $localField)
+							{
+								// Check if the field validates:
+								$result = $this->__validateField($localField);
+								if($result !== true)
+								{
+									// Field doesn't validate:
+									$fieldErrors->appendChild(new XMLElement('li', $result));
+									$error = true;
+									$ok = false;
+									$rowClass = 'error';
+								} else {
+									// Field validates:
+									// Check if the field hashes are unique:
+									if(count($cachedIndex->xpath(sprintf('section/fields/field[unique_hash=\'%s\']', (string)$localField->unique_hash))) > 0)
+									{
+										$ok = false;
+										$fieldErrors->appendChild(
+											new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> does not have a unique hash.'),
+												(string)$localField->label))
+										);
+										$error = true;
+										$rowClass = 'error';
+									}
+									// Check if there are no duplicate fields in this section:
+									if(count($localSection->xpath(sprintf('fields/field[element_name=\'%s\']', (string)$localField->element_name))) > 1)
+									{
+										$ok = false;
+										$fieldErrors->appendChild(
+											new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> occurs more than once.'),
+												(string)$localField->label))
+										);
+										$error = true;
+										$rowClass = 'error';
+									}
+								}
+							}
+							if(!$ok)
+							{
+								$localRow = new XMLElement('td', __('This section cannot be added because of the following problems:'));
+								$localRow->appendChild($fieldErrors);
+							}
+
+							// Check if the hash of the section is unique:
+							if(count($cachedIndex->xpath(sprintf('section[unique_hash=\'%s\']', (string)$localSection->unique_hash))) > 0)
 							{
 								$ok = false;
 								$error = true;
-								$localRow = new XMLElement('td', sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>.'),
-									General::createHandle((string)$localSection->name)));
+								$localRow = new XMLElement('td', __('Duplicate hash found for this section.'));
 								$rowClass = 'error';
 							}
-						}
 
-						if($ok)
-						{
-							$localRow = new XMLElement('td', __('This section is new and will be created.'));
-							// $rowClass = 'notice';
+							// Check if the section name is unique:
+							if(count($cachedIndex->xpath(sprintf('section[name=\'%s\']', (string)$localSection->name))) > 0)
+							{
+								$ok = false;
+								$error = true;
+								$localRow = new XMLElement('td', __('There already exists a section with this name.'));
+								$rowClass = 'error';
+							}
+
+							if($ok)
+							{
+								$localRow = new XMLElement('td', __('This section is new and will be created.'));
+								// $rowClass = 'notice';
+							}
 						}
 						$tableRows[] = Widget::TableRow(array($cachedRow, $localRow), $rowClass);
 					}
@@ -1238,6 +1217,107 @@
 				$this->appendSubheading(__('Section Differences'), Widget::Anchor(__('Reject Changes'), SYMPHONY_URL.'/blueprints/sections/diff/reject/', __('Reject Changes'), 'button', NULL, array('accesskey' => 'r')));
 			}
 			$this->Contents->appendChild($table);
+		}
+
+		private function __validateSection($sectionElement)
+		{
+			// First check if all the required elements are there:
+			$requiredElements = array('name', 'sortorder', 'hidden', 'navigation_group', 'unique_hash');
+			foreach($requiredElements as $elementName)
+			{
+				if((string)$sectionElement->$elementName == '')
+				{
+					return sprintf(__('Required element \'%s\' is not found. Changes cannot be accepted.'), $elementName);
+				}
+			}
+			// Check hidden:
+			if((string)$sectionElement->hidden != 'yes' && (string)$sectionElement->hidden != 'no')
+			{
+				return __('<em>\'hidden\'</em> must be either <em>\'yes\'</em> or <em>\'no\'</em>.');
+			}
+			// Check sortorder:
+			if(!is_numeric((string)$sectionElement->sortorder))
+			{
+				return __('<em>\'sortorder\'</em> must be numeric.');
+			}
+			// Check if the sections' handle matches it's name:
+			if((string)$sectionElement->name['handle'] != General::createHandle((string)$sectionElement->name))
+			{
+				return sprintf(__('Invalid handle. The handle must be <em>\'%s\'</em>.'),
+					General::createHandle((string)$sectionElement->name));
+			}
+			// Check if the sections XML file matches it's handle:
+			if(!file_exists(WORKSPACE.'/sections/'.General::createHandle((string)$sectionElement->name).'.xml'))
+			{
+				return sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>.'),
+					General::createHandle((string)$sectionElement->name));
+			} else {
+				// Extra check to make sure that this is the correct XML-file (since we are working with the
+				// index, we don't know the filename by hand:
+				$xml = simplexml_load_file(WORKSPACE.'/sections/'.General::createHandle((string)$sectionElement->name).'.xml');
+				if((string)$xml->unique_hash != (string)$sectionElement->unique_hash)
+				{
+					return sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>.'),
+						General::createHandle((string)$sectionElement->name));
+				}
+			}
+			// Everything seems ok from here...
+			return true;
+		}
+
+		/**
+		 * Validate a single field element
+		 *
+		 * @param $fieldElement
+		 *  The fieldelement
+		 * @return bool|string
+		 *  True on success, or the error message on failure.
+		 */
+		private function __validateField($fieldElement)
+		{
+			// First check if all the required elements are there:
+			$requiredElements = array('label', 'element_name', 'unique_hash', 'type', 'required', 'sortorder', 'location', 'show_column');
+			foreach($requiredElements as $elementName)
+			{
+				if((string)$fieldElement->$elementName == '')
+				{
+					return sprintf(__('Required element \'%s\' is not found. Changes cannot be accepted.'), $elementName);
+				}
+			}
+			// Validate element_name:
+			if(!preg_match('/^[a-z][-a-z0-9]*$/', (string)$fieldElement->element_name))
+			{
+				return sprintf(__('The element name <em>\'%s\'</em> is invalid.'), (string)$fieldElement->element_name);
+			}
+			// Check type:
+			$availableFieldTypes = FieldManager::listAll();
+			if(!in_array((string)$fieldElement->type, $availableFieldTypes))
+			{
+				return sprintf(__('Field <em>\'%s\'</em> cannot be installed for this section. Install the field type first :  <em>\'%s\'</em>'),
+						(string)$fieldElement->label,
+						(string)$fieldElement->type);
+			}
+			// Check required:
+			if((string)$fieldElement->required != 'yes' && (string)$fieldElement->required != 'no')
+			{
+				return __('<em>\'required\'</em> must be either <em>\'yes\'</em> or <em>\'no\'</em>.');
+			}
+			// Check sortorder:
+			if(!is_numeric((string)$fieldElement->sortorder))
+			{
+				return __('<em>\'sortorder\'</em> must be numeric.');
+			}
+			// Check show_column:
+			if((string)$fieldElement->show_column != 'yes' && (string)$fieldElement->show_column != 'no')
+			{
+				return __('<em>\'show_column\'</em> must be either <em>\'yes\'</em> or <em>\'no\'</em>.');
+			}
+			// Check show_column:
+			if((string)$fieldElement->location != 'main' && (string)$fieldElement->location != 'sidebar')
+			{
+				return __('<em>\'location\'</em> must be either <em>\'main\'</em> or <em>\'sidebar\'</em>.');
+			}
+			return true;
 		}
 
 		/**
