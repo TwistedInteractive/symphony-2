@@ -181,37 +181,22 @@
                     );
                 }
             }
-
-/*            // First, check if there are duplicate unique hashes. This is ofcourse not done!
-            if($_hash = self::index()->hasDuplicateHashes())
-            {
-                throw new Exception(__('Duplicate unique hash found in Pages: '.$_hash));
-            }
-
-            // Secondly check if there are hashes in our index that aren't present in the lookup table. This would mean
-            // that a new page is added:
-            $_pages = self::index()->fetch();
-            foreach($_pages as $_page)
-            {
-                if(self::lookup()->getId((string)$_page->unique_hash) == false)
-                {
-                    // No ID found for this hash, this page is new!
-                    self::lookup()->save((string)$_page->unique_hash);
-                }
-            }
-
-            // Third, check if there are hashes in the lookup table that aren't used by any pages. This would mean
-            // that a page is deleted:
-            $_hashes = self::lookup()->getAllHashes();
-            foreach($_hashes as $_hash)
-            {
-                if(self::index()->xpath('page[unique_hash=\''.$_hash.'\']', true) === false)
-                {
-                    // No page found with this hash, this page is deleted.
-                    self::lookup()->delete($_hash);
-                }
-            }*/
         }
+
+		/**
+		 * This function validates the index.
+		 *
+		 * @param $index
+		 *  The index to validate. This needs to be sent as a parameter, otherwise the function would fall into an
+		 *  eternal loop.
+		 * @return bool
+		 *  True if everything is valid, false if not.
+		 */
+		public static function validateIndex($index)
+		{
+			// Since pages store nothing in the database, the index will always validate.
+			return true;
+		}
 
 		/**
 		 * Return a Page title by the handle

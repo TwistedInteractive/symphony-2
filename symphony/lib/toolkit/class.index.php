@@ -254,12 +254,51 @@ class Index
 			// Check the MD5:
 			if((string)$this->_index['md5'] == $_md5_hash)
 			{
+				// The cached result is the same as the directory, index does not need to be rebuilt.
 				$_buildIndex = false;
 				$this->_dirty = false;
 			}
 		} else {
-			// No cached data found, create a new index:
-			$overwrite = true;
+			// No cached data found, this can mean either:
+			// 1 - This is an empty installation. Create an empty index and cache it.
+			// 2 - The cache is flushed and no local XML files are changed. Create a new index and cache it.
+			// 3 - The cache is flushed and there are changes in the XML files. It's up to the managers to detect
+			//     changes (by checking unique hashes in the lookup tables?)
+
+			// Scenario 1:
+			if(empty($_files))
+			{
+				// No files are found, store an empty index:
+				$overwrite = true;
+			} else {
+				switch($this->_type)
+				{
+					case self::INDEX_PAGES :
+						{
+							$validate = PageManager::validateIndex($this->getLocalIndex());
+							break;
+						}
+					case self::INDEX_SECTIONS :
+						{
+							$validate = SectionManager::validateIndex($this->getLocalIndex());
+							break;
+						}
+				}
+				if($validate)
+				{
+					// Scenario 2:
+					// No local XML files changed, create a new index and cache it:
+					$overwrite = true;
+				} else {
+					// Scenario 3:
+					// todo: The local XML doesn't validate. This means that the cache was cleared ánd there were changes in
+					// the XML file at the same time. For now, create an empty index, but this really needs to be some
+					// thinking through, because this scenario could throw errors.
+					$this->_index = new SimpleXMLElement('<'.$this->_element_name.'/>');
+					$this->_index->addAttribute('md5', $_md5_hash);
+				}
+			}
+
 /*			$this->_index = new SimpleXMLElement('<'.$this->_element_name.'/>');
 			$this->_index->addAttribute('md5', $_md5_hash);
 			if(!$overwrite)

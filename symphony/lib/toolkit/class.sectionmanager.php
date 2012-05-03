@@ -173,6 +173,28 @@
 		}
 
 		/**
+		 * This function validates the index.
+		 *
+		 * @param $index
+		 *  The index to validate. This needs to be sent as a parameter, otherwise the function would fall into an
+		 *  eternal loop.
+		 * @return bool
+		 *  True if everything is valid, false if not.
+		 */
+		public static function validateIndex($index)
+		{
+			// Check if all fields are created in the database:
+			foreach($index->xpath('section/fields/field') as $field)
+			{
+				if(!self::lookup()->getId((string)$field->unique_hash))
+				{
+					return false;
+				}
+			}
+			return true;
+		}
+
+		/**
 		 * Updates an existing Section given it's ID and an associative
 		 * array of settings. The array does not have to contain all the
 		 * settings for the Section as there is no deletion of settings
