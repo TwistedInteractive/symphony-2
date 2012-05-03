@@ -29,9 +29,6 @@ class Index
 	// The element name to use as root-tag
 	private $_element_name;
 
-	// Reference the cachable:
-	private $_cache;
-
 	// If the index is dirty (difference between XML files and cached index)
 	private $_dirty;
 
@@ -64,7 +61,6 @@ class Index
 	private function __construct($type)
 	{
 		$this->_type  = $type;
-		$this->_cache = new Cacheable(Symphony::Database());
 		// Create an index:
 		switch($this->_type)
 		{
@@ -244,84 +240,46 @@ class Index
 		$_md5_hash = md5(implode(',', $_md5));
 
 		// Check if the cached version is the same:
-		$_data = $this->_cache->check('index:'.$this->_element_name);
+		$_data = Symphony::Database()->fetch(sprintf('SELECT * FROM `tbl_index` WHERE `type` = \'%s\';', $this->_type));
+
 		$_buildIndex = true;
 		$this->_dirty = true;
-		if($_data !== false)
+		if(!empty($_data))
 		{
-			// Load the cached XML:
-			$this->_index = new SimpleXMLElement($_data['data']);
+			$_data = $_data[0];
+			// The cached result is the same as the directory, index does not need to be rebuilt.
+			$this->_index = new SimpleXMLElement($_data['xml']);
 			// Check the MD5:
-			if((string)$this->_index['md5'] == $_md5_hash)
+			if($_data['md5'] == $_md5_hash)
 			{
-				// The cached result is the same as the directory, index does not need to be rebuilt.
 				$_buildIndex = false;
 				$this->_dirty = false;
 			}
 		} else {
-			// No cached data found, this can mean either:
-			// 1 - This is an empty installation. Create an empty index and cache it.
-			// 2 - The cache is flushed and no local XML files are changed. Create a new index and cache it.
-			// 3 - The cache is flushed and there are changes in the XML files. It's up to the managers to detect
-			//     changes (by checking unique hashes in the lookup tables?)
-
-			// Scenario 1:
-			if(empty($_files))
-			{
-				// No files are found, store an empty index:
-				$overwrite = true;
-			} else {
-				switch($this->_type)
-				{
-					case self::INDEX_PAGES :
-						{
-							$validate = PageManager::validateIndex($this->getLocalIndex());
-							break;
-						}
-					case self::INDEX_SECTIONS :
-						{
-							$validate = SectionManager::validateIndex($this->getLocalIndex());
-							break;
-						}
-				}
-				if($validate)
-				{
-					// Scenario 2:
-					// No local XML files changed, create a new index and cache it:
-					$overwrite = true;
-				} else {
-					// Scenario 3:
-					// todo: The local XML doesn't validate. This means that the cache was cleared ánd there were changes in
-					// the XML file at the same time. For now, create an empty index, but this really needs to be some
-					// thinking through, because this scenario could throw errors.
-					$this->_index = new SimpleXMLElement('<'.$this->_element_name.'/>');
-					$this->_index->addAttribute('md5', $_md5_hash);
-				}
-			}
-
-/*			$this->_index = new SimpleXMLElement('<'.$this->_element_name.'/>');
-			$this->_index->addAttribute('md5', $_md5_hash);
-			if(!$overwrite)
-			{
-				// Set dirty to false, otherwise you would get a notification about changes:
-				$this->_dirty = false;
-			}*/
+			// No cached data found, this means this is an empty installation. Create a new index and cache it.
+			$overwrite = true;
 		}
 
 		// Check if an index needs to be built:
 		if($_buildIndex && $overwrite)
 		{
 			$this->_index = new SimpleXMLElement('<'.$this->_element_name.'/>');
-			$this->_index->addAttribute('md5', $_md5_hash);
 			foreach($_files as $_file)
 			{
 				$this->mergeXML($this->_index, simplexml_load_file($_file));
 			}
-			// Cache it:
-			$this->_cache->write('index:'.$this->_element_name, $this->_index->saveXML());
+			// Store it:
+			Symphony::Database()->delete('tbl_index', sprintf('`type` = \'%s\'', $this->_type));
+			Symphony::Database()->insert(array(
+				'type' => $this->_type,
+				'md5' => $_md5_hash,
+				'xml' => $this->_index->saveXML()
+			), 'tbl_index');
+
 			// Not dirty anymore:
 			$this->_dirty = false;
 		}
+
 
 		/**
 		 * Provide a hook to adjust the index
