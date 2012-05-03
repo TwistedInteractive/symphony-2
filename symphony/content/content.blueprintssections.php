@@ -1042,7 +1042,7 @@
 														} else {
 															// Field validates:
 															// Check if this section doesn't already have a field with this handle:
-															if(count($localSection->xpath(sprintf('fields/field[element_name=\'%s\']', (string)$localField->element_name))) == 0)
+															if(count($localSection->xpath(sprintf('fields/field[element_name=\'%s\']', (string)$localField->element_name))) == 1)
 															{
 																$changes->appendChild(
 																	new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> is new and will be added to the section.'),
@@ -1136,7 +1136,8 @@
 								} else {
 									// Field validates, do some extra checks for adding a new field:
 									// Check if the field hashes are unique:
-									if(count($cachedIndex->xpath(sprintf('section/fields/field[unique_hash=\'%s\']', (string)$localField->unique_hash))) > 0)
+									$localFields = $localIndex->xpath(sprintf('section/fields/field[unique_hash=\'%s\']', (string)$localField->unique_hash));
+									if(count($localFields) > 1 && $localFields != false)
 									{
 										$ok = false;
 										$fieldErrors->appendChild(
