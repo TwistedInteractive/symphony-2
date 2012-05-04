@@ -922,7 +922,7 @@
 							$rowClass = 'no-changes';
 						} else {
 							// Validate local section first:
-							$result = $this->__validateSection($localSection);
+							$result = $this->__validateSection($localSection, $localIndex);
 							if($result !== true)
 							{
 								// Section does not validate:
@@ -962,7 +962,7 @@
 															$ul = new XMLElement('ul');
 
 															// Check if the field validates:
-															$result = $this->__validateField($localField);
+															$result = $this->__validateField($localField, $localIndex);
 															if($result !== true)
 															{
 																// Field doesn't validate:
@@ -1032,7 +1032,7 @@
 													{
 														// This is a new field for this section.
 														// Check if the field validates:
-														$result = $this->__validateField($localField);
+														$result = $this->__validateField($localField, $localIndex);
 														if($result !== true)
 														{
 															// Field doesn't validate:
@@ -1112,7 +1112,7 @@
 						$cachedRow = new XMLElement('td', (string)$localSection->name);
 						$ok = true;
 						// Validate the section:
-						$result = $this->__validateSection($localSection);
+						$result = $this->__validateSection($localSection, $localIndex);
 						if($result !== true)
 						{
 							// Section does not validate:
@@ -1125,7 +1125,7 @@
 							foreach($localSection->xpath('fields/field') as $localField)
 							{
 								// Check if the field validates:
-								$result = $this->__validateField($localField);
+								$result = $this->__validateField($localField, $localIndex);
 								if($result !== true)
 								{
 									// Field doesn't validate:
@@ -1133,60 +1133,13 @@
 									$error = true;
 									$ok = false;
 									$rowClass = 'error';
-								} else {
-									// Field validates, do some extra checks for adding a new field:
-									// Check if the field hashes are unique:
-									$localFields = $localIndex->xpath(sprintf('section/fields/field[unique_hash=\'%s\']', (string)$localField->unique_hash));
-									if(count($localFields) > 1 && $localFields != false)
-									{
-										$ok = false;
-										$fieldErrors->appendChild(
-											new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> does not have a unique hash.'),
-												(string)$localField->label))
-										);
-										$error = true;
-										$rowClass = 'error';
-									}
-									// Check if there are no duplicate fields in this section:
-									if(count($localSection->xpath(sprintf('fields/field[element_name=\'%s\']', (string)$localField->element_name))) > 1)
-									{
-										$ok = false;
-										$fieldErrors->appendChild(
-											new XMLElement('li', sprintf(__('Field <em>\'%s\'</em> occurs more than once.'),
-												(string)$localField->label))
-										);
-										$error = true;
-										$rowClass = 'error';
-									}
 								}
 							}
 							if(!$ok)
 							{
 								$localRow = new XMLElement('td', __('This section cannot be added because of the following problems:'));
 								$localRow->appendChild($fieldErrors);
-							}
-
-							// Everything is fine so far, do some extra checks for adding a new section:
-							// Check if the hash of the section is unique:
-							if(count($cachedIndex->xpath(sprintf('section[unique_hash=\'%s\']', (string)$localSection->unique_hash))) > 0)
-							{
-								$ok = false;
-								$error = true;
-								$localRow = new XMLElement('td', __('Duplicate hash found for this section.'));
-								$rowClass = 'error';
-							}
-
-							// Check if the section name is unique:
-							if(count($cachedIndex->xpath(sprintf('section[name=\'%s\']', (string)$localSection->name))) > 0)
-							{
-								$ok = false;
-								$error = true;
-								$localRow = new XMLElement('td', __('There already exists a section with this name.'));
-								$rowClass = 'error';
-							}
-
-							if($ok)
-							{
+							} else {
 								// Everything is just fine!
 								$localRow = new XMLElement('td', __('This section is new and will be created.'));
 								// $rowClass = 'notice';
@@ -1221,10 +1174,12 @@
 		 *
 		 * @param $sectionElement
 		 *  The section element
+		 * @param $index
+		 *  The index for additional testing
 		 * @return bool|string
 		 *  Returns true on success or an error message on failure.
 		 */
-		private function __validateSection($sectionElement)
+		private function __validateSection($sectionElement, $index)
 		{
 			// First check if all the required elements are there:
 			$requiredElements = array('name', 'sortorder', 'hidden', 'navigation_group', 'unique_hash');
@@ -1266,6 +1221,16 @@
 						General::createHandle((string)$sectionElement->name));
 				}
 			}
+			// Check if the hash of the section is unique:
+			if(count($index->xpath(sprintf('section[unique_hash=\'%s\']', (string)$sectionElement->unique_hash))) > 0)
+			{
+				return __('Duplicate hash found for this section.');
+			}
+			// Check if the section name is unique:
+			if(count($index->xpath(sprintf('section[name=\'%s\']', (string)$sectionElement->name))) > 0)
+			{
+				return __('There already exists a section with this name.');
+			}
 			// Everything seems ok from here...
 			return true;
 		}
@@ -1275,10 +1240,12 @@
 		 *
 		 * @param $fieldElement
 		 *  The fieldelement
+		 * @param $index
+		 *  The index for additional testing
 		 * @return bool|string
 		 *  True on success, or the error message on failure.
 		 */
-		private function __validateField($fieldElement)
+		private function __validateField($fieldElement, $index)
 		{
 			// First check if all the required elements are there:
 			$requiredElements = array('label', 'element_name', 'unique_hash', 'type', 'required', 'sortorder', 'location', 'show_column');
@@ -1322,6 +1289,18 @@
 			{
 				return __('<em>\'location\'</em> must be either <em>\'main\'</em> or <em>\'sidebar\'</em>.');
 			}
+			// Check if the field hashes are unique:
+			$localFields = $index->xpath(sprintf('section/fields/field[unique_hash=\'%s\']', (string)$fieldElement->unique_hash));
+			if(count($localFields) > 1 && $localFields != false)
+			{
+				return sprintf(__('Field <em>\'%s\'</em> does not have a unique hash.'), (string)$fieldElement->label);
+			}
+			// Check if there are no duplicate fields in this section:
+			if(count($index->xpath(sprintf('fields/field[element_name=\'%s\']', (string)$fieldElement->element_name))) > 1)
+			{
+				return sprintf(__('Field <em>\'%s\'</em> occurs more than once.'), (string)$fieldElement->label);
+			}
+
 			return true;
 		}
 

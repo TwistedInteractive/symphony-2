@@ -1165,249 +1165,154 @@
 							$localRow = new XMLElement('td', __('No changes found.'));
 							$rowClass = 'no-changes';
 						} else {
-							$localRow = new XMLElement('td', __('Page is modified:'));
-							// Show changes:
-							$changes = new XMLElement('ul');
-							foreach($cachedPage->children() as $cachedElement)
+							// Validate the page:
+							$result = $this->__validatePage($localPage, $localIndex);
+							if($result !== true)
 							{
-								// Iterate through each element to detect changes:
-								$name = $cachedElement->getName();
-								switch($name)
-								{
-									case 'types' :
-										{
-											$cachedTypes = array();
-											$localTypes = array();
-											foreach($cachedElement->children() as $cachedType)
-											{
-												$cachedTypes[] = (string)$cachedType;
-											}
-											// Check if there are new types in the localElement:
-											$localElements = $localPage->xpath('types/type');
-											foreach($localElements as $localType)
-											{
-												$type = (string)$localType;
-
-												if(!in_array($type, $cachedTypes))
-												{
-													// Type not found. This is a new type and will be added
-													$changes->appendChild(
-														new XMLElement('li', sprintf(__('Type <em>\'%s\'</em> is new and will be added.'), $type))
-													);
-												}
-												$localTypes[] = $type;
-											}
-											// Check if there are types to be removed:
-											foreach($cachedTypes as $type)
-											{
-												if(!in_array($type, $localTypes))
-												{
-													// Type not found. This is a new type and will be added
-													$changes->appendChild(
-														new XMLElement('li', sprintf(__('Type <em>\'%s\'</em> will be removed.'), $type))
-													);
-												}
-											}
-											break;
-										}
-									case 'datasources' :
-										{
-											// Check if there are removed datasources:
-											$cachedDatasources = array();
-											foreach($cachedPage->xpath('datasources/datasource') as $cachedDatasource)
-											{
-												if(count($localPage->xpath(sprintf('datasources[datasource=\'%s\']', (string)$cachedDatasource))) == 0)
-												{
-													$changes->appendChild(
-														new XMLElement('li', sprintf(__('Datasource <em>\'%s\'</em> is going to be removed from this page.'),
-														(string)$cachedDatasource))
-													);
-												}
-												$cachedDatasources[] = (string)$cachedDatasource;
-											}
-											// Check if datasource exists:
-											$foundDatasources = array();
-											$files = glob(WORKSPACE.'/data-sources/data.*.php');
-											foreach($files as $file)
-											{
-												$info = pathinfo($file);
-												$foundDatasources[] = str_replace('data.', '', $info['filename']);
-											}
-											foreach($localPage->xpath('datasources/datasource') as $localDatasource)
-											{
-												if(!in_array((string)$localDatasource, $foundDatasources))
-												{
-													// The datasource is not found in the datasource folder:
-													$changes->appendChild(
-														new XMLElement('li', sprintf(__('Datasource <em>\'%s\'</em> not found. Changes cannot be accepted.'),
-														(string)$localDatasource))
-													);
-													$error = true;
-													$rowClass = 'error';
-
-													// Check if there are datasources to be added:
-												} elseif(!in_array((string)$localDatasource, $cachedDatasources)) {
-													$changes->appendChild(
-														new XMLElement('li', sprintf(__('Datasource <em>\'%s\'</em> is going to be added to this page.'),
-														(string)$localDatasource))
-													);
-												}
-
-											}
-											break;
-										}
-									case 'events' :
-										{
-											// Check if there are removed datasources:
-											$cachedEvents = array();
-											foreach($cachedPage->xpath('events/event') as $cachedEvent)
-											{
-												if(count($localPage->xpath(sprintf('events[event=\'%s\']', (string)$cachedEvent))) == 0)
-												{
-													$changes->appendChild(
-														new XMLElement('li', sprintf(__('Event <em>\'%s\'</em> is going to be removed from this page.'),
-														(string)$cachedEvent))
-													);
-												}
-												$cachedEvents[] = (string)$cachedEvent;
-											}
-											// Check if events exists:
-											$foundEvents = array();
-											$files = glob(EVENTS.'/event.*.php');
-											foreach($files as $file)
-											{
-												$info = pathinfo($file);
-												$foundEvents[] = str_replace('event.', '', $info['filename']);
-											}
-											foreach($localPage->xpath('events/event') as $localEvent)
-											{
-												if(!in_array((string)$localEvent, $foundEvents))
-												{
-													// The datasource is not found in the datasource folder:
-													$changes->appendChild(
-														new XMLElement('li', sprintf(__('Event <em>\'%s\'</em> not found. Changes cannot be accepted.'),
-														(string)$localEvent))
-													);
-													$error = true;
-													$rowClass = 'error';
-
-													// Check if there are datasources to be added:
-												} elseif(!in_array((string)$localEvent, $cachedEvents)) {
-													$changes->appendChild(
-														new XMLElement('li', sprintf(__('Event <em>\'%s\'</em> is going to be added to this page.'),
-														(string)$localEvent))
-													);
-												}
-											}
-											break;
-										}
-									default:
-										{
-											// See if this element exists in the local section:
-											$localElements = $localPage->xpath($name);
-											if(count($localElements) == 1)
-											{
-												// Local element found, check if there are differences:
-												$localElement = $localElements[0];
-												if($cachedElement->saveXML() != $localElement->saveXML())
-												{
-													// Not identical:
-													$changes->appendChild(
-														new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> : %s → %s'), $name,
-															(string)$cachedElement,
-															(string)$localElement
-														))
-													);
-												}
-											} else {
-												// Local element not found: throw error, since this is not correct:
-												$changes->appendChild(
-													new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> not found. Changes cannot be accepted.'), $name))
-												);
-												$error = true;
-												$rowClass = 'error';
-											}
-											break;
-										}
-								}
-							}
-
-							// Check if parent exists:
-							$localParent = (string)$localPage->parent;
-							if(!empty($localParent) && count($localIndex->xpath(sprintf('page[unique_hash=\'%s\']', $localParent))) == 0)
-							{
+								// Page does not validate:
+								$localRow = new XMLElement('td', $result);
 								$error = true;
-								$changes->appendChild(
-									new XMLElement('li', __('The parent page is not found.'))
-								);
-								$rowClass = 'error';
-							}
-
-							// Check for duplicate handle:
-							$localPath = (string)$localPage->path;
-							$localHandle = (string)$localPage->title['handle'];
-							if(count($localIndex->xpath(sprintf('page[path=\'%s\' and title/@handle=\'%s\']', $localPath, $localHandle))) > 1)
-							{
-								$error = true;
-								$changes->appendChild(
-									new XMLElement('li', __('Duplicate handle found for this level.'))
-								);
-								$rowClass = 'error';
-							}
-
-							// Check that there is only 1 index-type:
-							if(count($localIndex->xpath('page[types/type=\'index\']')) > 1)
-							{
-								$error = true;
-								$changes->appendChild(
-									new XMLElement('li', __('Only one page can be of type <em>\'index\'</em>.'))
-								);
-								$rowClass = 'error';
-							}
-
-							// Check if the pages XML file and path matches it's handle:
-							$filename = !empty($localPath) ? str_replace('/', '_', $localPath).'_'.$localHandle : $localHandle;
-							if(!file_exists(WORKSPACE.'/pages/'.$filename.'.xml'))
-							{
-								$error = true;
-								$changes->appendChild(
-									new XMLElement('li', sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>.'), $filename))
-								);
 								$rowClass = 'error';
 							} else {
-								// Extra check to make sure that this is the correct XML-file (since we are working with the
-								// index, we don't know the filename by hand:
-								$xml = simplexml_load_file(WORKSPACE.'/pages/'.$filename.'.xml');
-								if((string)$xml->unique_hash != (string)$localPage->unique_hash)
+								// page validates:
+								$localRow = new XMLElement('td', __('Page is modified:'));
+								// Show changes:
+								$changes = new XMLElement('ul');
+								foreach($cachedPage->children() as $cachedElement)
 								{
-									$error = true;
-									$changes->appendChild(
-										new XMLElement('li', sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>, or the handle should be adjusted to correspond with the filename.'),
-										$filename))
-									);
-									$rowClass = 'error';
-								}
-							}
-							// Check if there is a matching XSL-file:
-							if(!file_exists(WORKSPACE.'/pages/'.$filename.'.xsl'))
-							{
-								$error = true;
-								$changes->appendChild(
-									new XMLElement('li', sprintf(__('Template not found: <em>\'%s.xsl\'</em>.'), $filename))
-								);
-								$rowClass = 'error';
-							}
+									// Iterate through each element to detect changes:
+									$name = $cachedElement->getName();
+									switch($name)
+									{
+										case 'types' :
+											{
+												$cachedTypes = array();
+												$localTypes = array();
+												foreach($cachedElement->children() as $cachedType)
+												{
+													$cachedTypes[] = (string)$cachedType;
+												}
+												// Check if there are new types in the localElement:
+												$localElements = $localPage->xpath('types/type');
+												foreach($localElements as $localType)
+												{
+													$type = (string)$localType;
 
-							$localRow->appendChild($changes);
+													if(!in_array($type, $cachedTypes))
+													{
+														// Type not found. This is a new type and will be added
+														$changes->appendChild(
+															new XMLElement('li', sprintf(__('Type <em>\'%s\'</em> is new and will be added.'), $type))
+														);
+													}
+													$localTypes[] = $type;
+												}
+												// Check if there are types to be removed:
+												foreach($cachedTypes as $type)
+												{
+													if(!in_array($type, $localTypes))
+													{
+														// Type not found. This is a new type and will be added
+														$changes->appendChild(
+															new XMLElement('li', sprintf(__('Type <em>\'%s\'</em> will be removed.'), $type))
+														);
+													}
+												}
+												break;
+											}
+										case 'datasources' :
+											{
+												// Check if there are removed datasources:
+												$cachedDatasources = array();
+												foreach($cachedPage->xpath('datasources/datasource') as $cachedDatasource)
+												{
+													if(count($localPage->xpath(sprintf('datasources[datasource=\'%s\']', (string)$cachedDatasource))) == 0)
+													{
+														$changes->appendChild(
+															new XMLElement('li', sprintf(__('Datasource <em>\'%s\'</em> is going to be removed from this page.'),
+															(string)$cachedDatasource))
+														);
+													}
+													$cachedDatasources[] = (string)$cachedDatasource;
+												}
+												// Check if datasources are added to the page:
+												foreach($localPage->xpath('datasources/datasource') as $localDatasource)
+												{
+													if(!in_array((string)$localDatasource, $cachedDatasources)) {
+														$changes->appendChild(
+															new XMLElement('li', sprintf(__('Datasource <em>\'%s\'</em> is going to be added to this page.'),
+															(string)$localDatasource))
+														);
+													}
+												}
+												break;
+											}
+										case 'events' :
+											{
+												// Check if there are removed events:
+												$cachedEvents = array();
+												foreach($cachedPage->xpath('events/event') as $cachedEvent)
+												{
+													if(count($localPage->xpath(sprintf('events[event=\'%s\']', (string)$cachedEvent))) == 0)
+													{
+														$changes->appendChild(
+															new XMLElement('li', sprintf(__('Event <em>\'%s\'</em> is going to be removed from this page.'),
+															(string)$cachedEvent))
+														);
+													}
+													$cachedEvents[] = (string)$cachedEvent;
+												}
+												// Check if events are added to the page:
+												foreach($localPage->xpath('events/event') as $localEvent)
+												{
+													if(!in_array((string)$localEvent, $cachedEvents)) {
+														$changes->appendChild(
+															new XMLElement('li', sprintf(__('Event <em>\'%s\'</em> is going to be added to this page.'),
+															(string)$localEvent))
+														);
+													}
+												}
+												break;
+											}
+										default:
+											{
+												// See if this element exists in the local section:
+												$localElements = $localPage->xpath($name);
+												if(count($localElements) == 1)
+												{
+													// Local element found, check if there are differences:
+													$localElement = $localElements[0];
+													if($cachedElement->saveXML() != $localElement->saveXML())
+													{
+														// Not identical:
+														$changes->appendChild(
+															new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> : %s → %s'), $name,
+																(string)$cachedElement,
+																(string)$localElement
+															))
+														);
+													}
+												} else {
+													// Local element not found: element will be added to the XML:
+													$changes->appendChild(
+														new XMLElement('li', sprintf(__('Element <em>\'%s\'</em> not found. Element will be added.'), $name))
+													);
+												}
+												break;
+											}
+									}
+								}
+								$localRow->appendChild($changes);
+							}
 						}
 					} elseif(count($localPages) > 1) {
-						// Section with duplicate hashes found. This is not allowed:
+						// Page with duplicate hashes found. This is not allowed:
 						$cachedRow = new XMLElement('td', (string)$cachedPage->title);
 						$localRow  = new XMLElement('td', __('Duplicate hash found for this page.'));
 						$error = true;
 						$rowClass = 'error';
 					} else {
-						// Section not found in local index, section is going to be deleted:
+						// Page not found in local index, section is going to be deleted:
 						$cachedRow = new XMLElement('td', (string)$cachedPage->title);
 						$localRow  = new XMLElement('td', __('The page is not found in the local index. This page is going to be deleted'));
 						$rowClass = 'alert';
@@ -1423,149 +1328,31 @@
 					$rowClass = null;
 					if(!in_array((string)$localPage->unique_hash, $foundPages))
 					{
-						// This page is new
+						// This page is new, check if it validates:
+						$result = $this->__validatePage($localPage, $localIndex);
 						$cachedRow = new XMLElement('td', (string)$localPage->title);
-						$ok = true;
-						// Check if the hash of the page is unique:
-						if(count($cachedIndex->xpath(sprintf('page[unique_hash=\'%s\']', (string)$localPage->unique_hash))) > 0)
+						if($result !== true)
 						{
-							$ok = false;
+							// Page does not validate:
+							$localRow = new XMLElement('td', $result);
 							$error = true;
-							$localRow = new XMLElement('td', __('Duplicate hash found for this page.'));
 							$rowClass = 'error';
-						}
-
-						// Check if the parent exists:
-						$localParent = (string)$localPage->parent;
-						if(!empty($localParent) && count($localIndex->xpath(sprintf('page[unique_hash=\'%s\']', $localParent))) == 0)
-						{
-							$ok = false;
-							$error = true;
-							$localRow = new XMLElement('td', __('The parent page is not found.'));
-							$rowClass = 'error';
-						}
-
-						// Check if the page handle is unique for this level:
-						$localPath = (string)$localPage->path;
-						$localHandle = (string)$localPage->title['handle'];
-						if(count($localIndex->xpath(sprintf('page[path=\'%s\' and title/@handle=\'%s\']', $localPath, $localHandle))) > 1)
-						{
-							$ok = false;
-							$error = true;
-							$localRow = new XMLElement('td', __('Duplicate handle found for this level.'));
-							$rowClass = 'error';
-						}
-
-						// Check that there is only 1 index-type:
-						if(count($localIndex->xpath('page[types/type=\'index\']')) > 1)
-						{
-							$ok = false;
-							$error = true;
-							$localRow = new XMLElement('td', __('Only one page can be of type <em>\'index\'</em>.'));
-							$rowClass = 'error';
-						}
-
-						// Check if datasources exist:
-						$pageErrors = new XMLElement('ul');
-						$pageErrorsFound = false;
-						$foundDatasources = array();
-						$files = glob(WORKSPACE.'/data-sources/data.*.php');
-						foreach($files as $file)
-						{
-							$info = pathinfo($file);
-							$foundDatasources[] = str_replace('data.', '', $info['filename']);
-						}
-						foreach($localPage->xpath('datasources/datasource') as $localDatasource)
-						{
-							if(!in_array((string)$localDatasource, $foundDatasources))
+						} else {
+							// Page validates, do additional checks:
+							// Check if the hash of the page is unique:
+							if(count($cachedIndex->xpath(sprintf('page[unique_hash=\'%s\']', (string)$localPage->unique_hash))) > 0)
 							{
-								// The datasource is not found in the datasource folder:
-								$pageErrors->appendChild(
-									new XMLElement('li', sprintf(__('Datasource <em>\'%s\'</em> not found.'),
-									(string)$localDatasource))
-								);
 								$error = true;
-								$rowClass = 'error';
-								$pageErrorsFound = true;
-							}
-						}
-
-						// Check if events exist:
-						$foundEvents = array();
-						$files = glob(EVENTS.'/event.*.php');
-						foreach($files as $file)
-						{
-							$info = pathinfo($file);
-							$foundEvents[] = str_replace('event.', '', $info['filename']);
-						}
-						foreach($localPage->xpath('events/event') as $localEvent)
-						{
-							if(!in_array((string)$localEvent, $foundEvents))
-							{
-								// The datasource is not found in the datasource folder:
-								$pageErrors->appendChild(
-									new XMLElement('li', sprintf(__('Event <em>\'%s\'</em> not found.'),
-									(string)$localEvent))
-								);
-								$error = true;
-								$rowClass = 'error';
-								$pageErrorsFound = true;
-							}
-						}
-
-						// Add the errors to the list:
-						if($pageErrorsFound)
-						{
-							$ok = false;
-							$localRow = new XMLElement('td', __('This page cannot be added because of the following problems:'));
-							$localRow->appendChild($pageErrors);
-						}
-
-						// Check if the pages XML file and path matches it's handle:
-						if($ok)
-						{
-							$filename = !empty($localPath) ? str_replace('/', '_', $localPath).'_'.$localHandle : $localHandle;
-							if(!file_exists(WORKSPACE.'/pages/'.$filename.'.xml'))
-							{
-								$ok = false;
-								$error = true;
-								$localRow = new XMLElement('td', sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>.'),
-									$filename));
+								$localRow = new XMLElement('td', __('Duplicate hash found for this page.'));
 								$rowClass = 'error';
 							} else {
-								// Extra check to make sure that this is the correct XML-file (since we are working with the
-								// index, we don't know the filename by hand:
-								$xml = simplexml_load_file(WORKSPACE.'/pages/'.$filename.'.xml');
-								if((string)$xml->unique_hash != (string)$localPage->unique_hash)
-								{
-									$ok = false;
-									$error = true;
-									$localRow = new XMLElement('td', sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>, or the handle should be adjusted to correspond with the filename.'),
-										$filename));
-									$rowClass = 'error';
-								}
+								$localRow = new XMLElement('td', __('This page is new and will be created.'));
+								// $rowClass = 'notice';
 							}
-							// Check if there is a matching XSL-file:
-							if(!file_exists(WORKSPACE.'/pages/'.$filename.'.xsl'))
-							{
-								$ok = false;
-								$error = true;
-								$localRow = new XMLElement('td', sprintf(__('Template not found: <em>\'%s.xsl\'</em>.'),
-									$filename));
-								$rowClass = 'error';
-							}
-						}
-
-						if($ok)
-						{
-							$localRow = new XMLElement('td', __('This page is new and will be created.'));
-							// $rowClass = 'notice';
 						}
 						$tableRows[] = Widget::TableRow(array($cachedRow, $localRow), $rowClass);
-
 					}
 				}
-
 			}
 
 			$tableBody = Widget::TableBody($tableRows);
@@ -1585,6 +1372,94 @@
 			}
 			$this->Contents->appendChild($table);
 
+		}
+
+		/**
+		 * Validate page XML
+		 *
+		 * @param $pageElement
+		 *  The page XML element
+		 * @param $index
+		 *  The index to check against
+		 * @return bool|string
+		 *  true on success, the error message on failure
+		 */
+		private function __validatePage($pageElement, $index)
+		{
+			// First check if all the required elements are there:
+			$requiredElements = array('title', 'sortorder', 'unique_hash');
+			foreach($requiredElements as $elementName)
+			{
+				if((string)$pageElement->$elementName == '')
+				{
+					return sprintf(__('Required element \'%s\' is not found. Changes cannot be accepted.'), $elementName);
+				}
+			}
+			// Check sortorder:
+			if(!is_numeric((string)$pageElement->sortorder))
+			{
+				return __('<em>\'sortorder\'</em> must be numeric.');
+			}
+			// Check for duplicate handle:
+			$localPath = (string)$pageElement->path;
+			$localHandle = (string)$pageElement->title['handle'];
+			if(count($index->xpath(sprintf('page[path=\'%s\' and title/@handle=\'%s\']', $localPath, $localHandle))) > 1)
+			{
+				return __('Duplicate handle found for this level.');
+			}
+			// Check if the pages XML file and path matches it's handle:
+			$filename = !empty($localPath) ? str_replace('/', '_', $localPath).'_'.$localHandle : $localHandle;
+			if(!file_exists(WORKSPACE.'/pages/'.$filename.'.xml'))
+			{
+				return sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>.'), $filename);
+			} else {
+				// Extra check to make sure that this is the correct XML-file (since we are working with the
+				// index, we don't know the filename by hand:
+				$xml = simplexml_load_file(WORKSPACE.'/pages/'.$filename.'.xml');
+				if((string)$xml->unique_hash != (string)$pageElement->unique_hash)
+				{
+					return sprintf(__('Invalid filename. The filename must be <em>\'%s.xml\'</em>, or the handle should be adjusted to correspond with the filename.'), $filename);
+				}
+			}
+			// Check if there is a matching XSL-file:
+			if(!file_exists(WORKSPACE.'/pages/'.$filename.'.xsl'))
+			{
+				return sprintf(__('Template not found: <em>\'%s.xsl\'</em>.'), $filename);
+			}
+			// Check if parent exists:
+			$localParent = (string)$pageElement->parent;
+			if(!empty($localParent) && count($index->xpath(sprintf('page[unique_hash=\'%s\']', $localParent))) == 0)
+			{
+				return __('The parent page is not found.');
+			}
+			// Validate types:
+			// Check that there is only 1 index-type:
+			if(count($index->xpath('page[types/type=\'index\']')) > 1)
+			{
+				return __('Only one page can be of type <em>\'index\'</em>.');
+			}
+			// Validate datasources:
+			$datasources = array_keys(DatasourceManager::listAll());
+			foreach($pageElement->xpath('datasources/datasource') as $datasourceElement)
+			{
+				if(!in_array((string)$datasourceElement, $datasources))
+				{
+					// The datasource is not found:
+					return sprintf(__('Datasource <em>\'%s\'</em> not found. Changes cannot be accepted.'), (string)$datasourceElement);
+				}
+			}
+			// Validate events:
+			$events = array_keys(EventManager::listAll());
+			foreach($pageElement->xpath('events/event') as $eventElement)
+			{
+				if(!in_array((string)$eventElement, $events))
+				{
+					// The datasource is not found:
+					return sprintf(__('Event <em>\'%s\'</em> not found. Changes cannot be accepted.'), (string)$eventElement);
+				}
+			}
+			// Everything seems ok from here...
+			return true;
 		}
 
 		/**
