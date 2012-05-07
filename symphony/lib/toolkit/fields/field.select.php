@@ -259,16 +259,13 @@
 
 			$fields = array();
 
-			$fields['field_id'] = $id;
 			if($this->get('static_options') != '') $fields['static_options'] = $this->get('static_options');
 			if($this->get('dynamic_options') != '') $fields['dynamic_options'] = $this->get('dynamic_options');
 			$fields['allow_multiple_selection'] = ($this->get('allow_multiple_selection') ? $this->get('allow_multiple_selection') : 'no');
 			$fields['sort_options'] = $this->get('sort_options') == 'yes' ? 'yes' : 'no';
 			$fields['show_association'] = $this->get('show_association') == 'yes' ? 'yes' : 'no';
 
-			Symphony::Database()->query("DELETE FROM `tbl_fields_".$this->handle()."` WHERE `field_id` = '$id' LIMIT 1");
-
-			if(!Symphony::Database()->insert($fields, 'tbl_fields_' . $this->handle())) return false;
+			if(!FieldManager::saveSettings($id, $fields)) { return false; }
 
 			$this->removeSectionAssociation($id);
 
@@ -453,16 +450,17 @@
 
 			foreach($records as $r){
 				$data = $r->getData($this->get('id'));
-
 				$value = General::sanitize($data['value']);
-				$handle = Lang::createHandle($value);
 
-				if(!isset($groups[$this->get('element_name')][$handle])){
-					$groups[$this->get('element_name')][$handle] = array('attr' => array('handle' => $handle, 'value' => $value),
-																		 'records' => array(), 'groups' => array());
+				if(!isset($groups[$this->get('element_name')][$data['handle']])){
+					$groups[$this->get('element_name')][$data['handle']] = array(
+						'attr' => array('handle' => $data['handle'], 'value' => $value),
+						'records' => array(),
+						'groups' => array()
+					);
 				}
 
-				$groups[$this->get('element_name')][$handle]['records'][] = $r;
+				$groups[$this->get('element_name')][$data['handle']]['records'][] = $r;
 			}
 
 			return $groups;

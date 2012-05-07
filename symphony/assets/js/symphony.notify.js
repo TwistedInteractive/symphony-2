@@ -5,7 +5,19 @@
 (function($) {
 
 	/**
-	 * @todo: documentation
+	 * Notify combines multiple system messages to an interface that focusses
+	 * on a single message at a time and offers a navigation to move between message.
+	 *
+	 * @name $.symphonyNotify
+	 * @class
+	 *
+	 * @param {Object} options An object specifying containing the attributes specified below
+	 * @param {String} [options.items='p.notice'] Selector to find messages
+	 * @param {String} [options.storage='symphony.notify.root'] Namespace used for local storage
+	 *
+	 * @example
+
+			$('#messages').symphonyNotify();
 	 */
 	$.fn.symphonyNotify = function(options) {
 		var objects = this,
@@ -20,13 +32,16 @@
 
 		Symphony.Language.add({
 			'Ignore?': false,
-			'next': false
+			'next': false,
+			'at': false
 		});
 
-	/*-----------------------------------------------------------------------*/
+	/*-------------------------------------------------------------------------
+		Events
+	-------------------------------------------------------------------------*/
 
 		// Attach message
-		objects.on('attach.notify', function(event, message, type) {
+		objects.on('attach.notify', function attachMessage(event, message, type) {
 			var object = $(this),
 				notifier = object.find('div.notifier'),
 				items = notifier.find(settings.items),
@@ -41,7 +56,7 @@
 			}).addClass('notice active').symphonyTimeAgo();
 
 			// Add ignore link to notices)
-			if(!item.is('.error') && !item.is('.success')) {
+			if(!item.is('.error') && !item.is('.success') && !item.is('.protected')) {
 				item.html(item.html() + ' <a class="ignore">' + Symphony.Language.get('Ignore?') + '</a>');
 			}
 
@@ -69,7 +84,7 @@
 		});
 
 		// Detach message
-		objects.on('deattach.notify', settings.items, function(event) {
+		objects.on('detach.notify', settings.items, function detachMessage(event) {
 			var item = $(this),
 				notifier = item.parents('div.notifier');
 
@@ -94,39 +109,39 @@
 			// Fade item
 			item.animate({
 				opacity: 0
-			}, 'normal', function() {
-				var items = item.siblings(),
-					notifier = item.parents('div.notifier');
+			}, 'normal', function removeItem() {
 
-				// No items
-				if(items.length == 0) {
-					notifier.slideUp('fast');
-					notifier.trigger('detachstop.notify', [item]);
+				// No other items
+				if(item.siblings().length == 0) {
+					notifier.trigger('resize.notify');
 				}
 
 				// More item
 				else {
 					notifier.trigger('move.notify');
 				}
+
+				// Remove item
+				item.remove();
+				notifier.trigger('detachstop.notify', [item]);
 			});
 		});
 
 		// Resize notifier
-		objects.on('resize.notify attachstop.notify movestop.notify', 'div.notifier', function(event) {
+		objects.on('resize.notify attachstop.notify', 'div.notifier', function resizeNotifer(event, item) {
 			var notifier = $(this),
-				active = notifier.find('.active'),
-				speed = 100;
+				active = item || notifier.find('.active:not(:animated)');				
 
 			// Adjust height
 			if(!notifier.is('.constructing')) {
-				notifier.animate({
-					height: active.innerHeight()
+				notifier.show().animate({
+					height: active.innerHeight() || 0
 				}, 100);
 			}
 		});
 
 		// Count messages
-		objects.on('attachstop.notify detachstop.notify', 'div.notifier', function(event) {
+		objects.on('attachstop.notify detachstop.notify', 'div.notifier', function toggleNavigator(event) {
 			var notifier = $(this),
 				items = notifier.find(settings.items);
 
@@ -142,7 +157,7 @@
 		});
 
 		// Next message
-		objects.on('click', 'nav', function(event) {
+		objects.on('click', 'nav', function switchMessage(event) {
 			var nav = $(this),
 				notifier = $(this).parents('div.notifier');
 
@@ -151,7 +166,7 @@
 		});
 
 		// Move messages
-		objects.on('move.notify', 'div.notifier', function(event) {
+		objects.on('move.notify', 'div.notifier', function moveMessage(event) {
 			var notifier = $(this),
 				current = notifier.find('.active'),
 				next = current.next(settings.items),
@@ -181,13 +196,13 @@
 			// Move to next message
 			notifier.animate({
 				scrollTop: offset
-			}, 'fast', function() {
+			}, 'fast', function stopMovingMessage() {
 				notifier.trigger('movestop.notify');
 			});
 		});
 
 		// Ignore message
-		objects.on('click', 'a.ignore', function(event) {
+		objects.on('click', 'a.ignore', function ignoreMessage(event) {
 			var ignore = $(this),
 				item = ignore.parents(settings.items),
 				notifier = item.parents('div.notifier'),
@@ -202,13 +217,15 @@
 			}
 
 			// Remove item
-			item.trigger('deattach.notify');
+			item.trigger('detach.notify');
 		});
 
-	/*-----------------------------------------------------------------------*/
+	/*-------------------------------------------------------------------------
+		Initialisation
+	-------------------------------------------------------------------------*/
 
 		// Build interface
-		objects.each(function() {
+		objects.each(function initNotify() {
 			var object = $(this),
 				notifier = $('<div class="notifier" />').prependTo(object),
 				items = $(object.find(settings.items).get().reverse());
@@ -216,7 +233,7 @@
 			// Construct notifier
 			notifier.addClass('constructing');
 			notifier.height(items.last().innerHeight());
-			items.each(function() {
+			items.each(function buildMessages() {
 				var item = $(this).remove(),
 					message = item.html(),
 					type = item.attr('class');
@@ -235,7 +252,7 @@
 			}
 
 			// Update relative times in system messages
-			setInterval(function() {
+			setInterval(function updateRelativeTimes() {
 				$('header p.notice').symphonyTimeAgo();
 			}, 60000);
 		});

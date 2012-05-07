@@ -420,11 +420,7 @@
 			Symphony::Log()->pushToLog('MYSQL: Importing Table Schema', E_NOTICE, true, true);
 
 			try{
-				Symphony::Database()->import(
-					file_get_contents(INSTALL . '/includes/install.sql'),
-					($fields['database']['use-server-encoding'] == 'no' ? true : false),
-					true
-				);
+				Symphony::Database()->import(file_get_contents(INSTALL . '/includes/install.sql'), true);
 			}
 			catch(DatabaseException $e){
 				self::__abort(
@@ -598,7 +594,7 @@
 			Symphony::Log()->pushToLog('CONFIGURING: Installing existing extensions', E_NOTICE, true, true);
 			$disabled_extensions = array();
 			foreach(new DirectoryIterator(EXTENSIONS) as $e) {
-				if($e->isDot() || $e->isFile()) continue;
+				if($e->isDot() || $e->isFile() || !is_file($e->getRealPath() . '/extension.driver.php')) continue;
 
 				$handle = $e->getBasename();
 				try {
@@ -621,8 +617,8 @@
 
 				// Is the language extension enabled?
 				if(in_array('lang_' . $language['handle'], ExtensionManager::listInstalledHandles())){
-					self::Configuration()->set('lang', $_REQUEST['lang'], 'symphony');
-					if(!self::Configuration()->write($conf['file']['write_mode'])){
+					Symphony::Configuration()->set('lang', $_REQUEST['lang'], 'symphony');
+					if(!Symphony::Configuration()->write(CONFIG, $conf['file']['write_mode'])){
 						Symphony::Log()->pushToLog('Could not write default language ‘' . $language['name'] . '’ to config file.', E_NOTICE, true, true);
 					}
 				}

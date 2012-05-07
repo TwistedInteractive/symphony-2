@@ -109,12 +109,9 @@
 
 			$fields = array();
 
-			$fields['field_id'] = $id;
 			$fields['validator'] = ($fields['validator'] == 'custom' ? NULL : $this->get('validator'));
 
-			Symphony::Database()->query("DELETE FROM `tbl_fields_".$this->handle()."` WHERE `field_id` = '$id' LIMIT 1");
-
-			return Symphony::Database()->insert($fields, 'tbl_fields_' . $this->handle());
+			return FieldManager::saveSettings($id, $fields);
 		}
 
 	/*-------------------------------------------------------------------------
@@ -278,20 +275,17 @@
 
 			foreach($records as $r){
 				$data = $r->getData($this->get('id'));
-
 				$value = General::sanitize($data['value']);
-				$handle = Lang::createHandle($data['value']);
 
-				if(!isset($groups[$this->get('element_name')][$handle])){
-					$groups[$this->get('element_name')][$handle] = array(
-						'attr' => array('handle' => $handle, 'value' => $value),
+				if(!isset($groups[$this->get('element_name')][$data['handle']])){
+					$groups[$this->get('element_name')][$data['handle']] = array(
+						'attr' => array('handle' => $data['handle'], 'value' => $value),
 						'records' => array(),
 						'groups' => array()
 					);
 				}
 
-				$groups[$this->get('element_name')][$handle]['records'][] = $r;
-
+				$groups[$this->get('element_name')][$data['handle']]['records'][] = $r;
 			}
 
 			return $groups;

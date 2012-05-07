@@ -5,7 +5,7 @@
 (function($) {
 
 	/**
-	 * This plugin allows items to be orderable.
+	 * Create orderable elements.
 	 *
 	 * @name $.symphonyOrderable
 	 * @class
@@ -14,8 +14,9 @@
 	 * @param {String} [options.items='li'] Selector to find items to be orderable
 	 * @param {String} [options.handles='*'] Selector to find children that can be grabbed to re-order
 	 * @param {String} [options.ignore='input, textarea, select'] Selector to find elements that should not propagate to the handle
+	 * @param {String} [options.delay=250] Time used to delay actions
 	 *
-	 *	@example
+	 * @example
 
 			$('table').symphonyOrderable({
 				items: 'tr',
@@ -27,15 +28,18 @@
 			settings = {
 				items:				'li',
 				handles:			'*',
-				ignore:				'input, textarea, select, a'
+				ignore:				'input, textarea, select, a',
+				delay:				250
 			};
 
 		$.extend(settings, options);
 
-	/*-----------------------------------------------------------------------*/
+	/*-------------------------------------------------------------------------
+		Events
+	-------------------------------------------------------------------------*/
 
 		// Start ordering
-		objects.on('mousedown.orderable', settings.items + ' ' + settings.handles, function(event) {
+		objects.on('mousedown.orderable', settings.items + ' ' + settings.handles, function startOrdering(event) {
 			var handle = $(this),
 				item = handle.parents(settings.items),
 				object = handle.parents('.orderable');
@@ -52,12 +56,14 @@
 				// Highlight item
 				if(object.is('.selectable, .collapsible')) {
 
-					// Avoid highlighting conflicts with selectable objects
+					// Delay ordering to avoid conflicts with scripts bound to the click event
+					object.trigger('orderstartlock', [item]);
 					setTimeout(function() {
 						if(object.is('.ordering')) {
 							item.addClass('ordering');
+							object.trigger('orderstartunlock', [item]);
 						}
-					}, 250);
+					}, settings.delay);
 				}
 				else {
 					item.addClass('ordering');
@@ -66,7 +72,7 @@
 		});
 
 		// Stop ordering
-		objects.on('mouseup.orderable mouseleave.orderable', function(event) {
+		objects.on('mouseup.orderable mouseleave.orderable', function stopOrdering(event) {
 			var object = $(this),
 				item = object.find('.ordering');
 
@@ -74,11 +80,19 @@
 				item.removeClass('ordering');
 				object.removeClass('ordering');
 				object.trigger('orderstop.orderable', [item]);
+
+				// Lock item to avoid conflicts with scripts bound to the click event
+				object.trigger('orderstoplock.orderable', [item]);
+				item.addClass('locked');
+				setTimeout(function() {
+					item.removeClass('locked');
+					object.trigger('orderstopunlock.orderable', [item]);
+				}, settings.delay);
 			}
 		});
 
-		// Reorder items
-		$(document).on('mousemove.orderable', '.ordering:has(.ordering)', function(event) {
+		// Order items
+		$(document).on('mousemove.orderable', '.ordering:has(.ordering)', function order(event) {
 			var object = $(this),
 				item = object.find('.ordering'),
 				top = item.offset().top,
@@ -110,7 +124,9 @@
 			}
 		});
 
-	/*-----------------------------------------------------------------------*/
+	/*-------------------------------------------------------------------------
+		Initialisation
+	-------------------------------------------------------------------------*/
 
 		// Make orderable
 		objects.addClass('orderable');

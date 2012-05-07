@@ -147,13 +147,10 @@
 
 			$fields = array();
 
-			$fields['field_id'] = $id;
 			$fields['pre_populate_source'] = (is_null($this->get('pre_populate_source')) ? NULL : implode(',', $this->get('pre_populate_source')));
 			$fields['validator'] = ($fields['validator'] == 'custom' ? NULL : $this->get('validator'));
 
-			Symphony::Database()->query("DELETE FROM `tbl_fields_".$this->handle()."` WHERE `field_id` = '$id' LIMIT 1");
-
-			return Symphony::Database()->insert($fields, 'tbl_fields_' . $this->handle());
+			return FieldManager::saveSettings($id, $fields);
 		}
 
 	/*-------------------------------------------------------------------------
@@ -252,6 +249,10 @@
 			}
 
 			return parent::prepareTableValue(array('value' => General::sanitize($value)), $link, $entry_id = null);
+		}
+
+		public function getParameterPoolValue($data, $entry_id = null) {
+			return $data['handle'];
 		}
 
 	/*-------------------------------------------------------------------------

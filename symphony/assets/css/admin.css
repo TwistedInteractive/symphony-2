@@ -403,7 +403,7 @@ fieldset.settings fieldset legend {
 
 #password i {
 	position: absolute;
-	top: 0;
+	top: -10px;
 	right: 0;
 }
 
@@ -565,16 +565,19 @@ div.field-checkbox:first-child {
 	font: inherit;
 }
 
-.file span {
-	overflow: hidden;
+.file span.frame {
 	text-align: left;
+	margin-top: 1px;
 }
 
-.file a {
+.file span.frame span {
 	float: left;
 	max-width: 50%;
 	overflow: hidden;
-	text-overflow: ellipsis;
+}
+
+.file a {
+	word-wrap: break-word;
 }
 
 .file em {
@@ -612,3 +615,17 @@ div.field-checkbox:first-child {
 	float: left;
 	margin-left: 0;
 }
+
+/*--------------------------------------------------------------------
+	Misc
+--------------------------------------------------------------------*/
+
+	#utilities > li:nth-child(2n) {
+		background: #FFF;
+	}
+
+	#version {
+		color: #9E9E9E;
+		margin: 33px 0 0 19px;
+		float: left;
+	}

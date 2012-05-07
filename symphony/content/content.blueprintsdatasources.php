@@ -131,7 +131,7 @@
 				$provided = false;
 				if(!empty($providers)) {
 					foreach($providers as $providerClass => $provider) {
-						if($fields['source'] == $providerClass::getClass()) {
+						if($fields['source'] == call_user_func(array($providerClass, 'getClass'))) {
 							$fields = array_merge($fields, $existing->settings());
 							$provided = true;
 							break;
@@ -834,7 +834,7 @@
 		// creating a 'big' page and then hiding the fields with JS
 			if(!empty($providers)) {
 				foreach($providers as $providerClass => $provider) {
-					$providerClass::buildEditor($this->Form, $this->_errors, $fields, $handle);
+					call_user_func(array($providerClass, 'buildEditor'), $this->Form, &$this->_errors, $fields, $handle);
 				}
 			}
 
@@ -876,9 +876,11 @@
 
 				switch($key) {
 					case 'author':
-						$fieldset = new XMLElement('fieldset');
-						$fieldset->appendChild(new XMLElement('legend', __('Author')));
-						$fieldset->appendChild(new XMLElement('p', $link->generate(false)));
+						if($link) {
+							$fieldset = new XMLElement('fieldset');
+							$fieldset->appendChild(new XMLElement('legend', __('Author')));
+							$fieldset->appendChild(new XMLElement('p', $link->generate(false)));
+						}
 						break;
 
 					case 'version':
@@ -1041,8 +1043,8 @@
 			// See if a Provided Datasource is saved
 			elseif (!empty($providers)) {
 				foreach($providers as $providerClass => $provider) {
-					if($fields['source'] == $providerClass::getSource()) {
-						$providerClass::validate($fields, $this->_errors);
+					if($fields['source'] == call_user_func(array($providerClass, 'getSource'))) {
+						call_user_func(array($providerClass, 'validate'), &$fields, &$this->_errors);
 						break;
 					}
 					unset($providerClass);
@@ -1053,7 +1055,7 @@
 			$rootelement = str_replace('_', '-', $classname);
 
 			// Check to make sure the classname is not empty after handlisation.
-			if(empty($classname) && !isset($this->_errors['name'])) $this->_errors['name'] = __('Please ensure name contains at least one Latin-based alphabet.', array($classname));
+			if(empty($classname) && !isset($this->_errors['name'])) $this->_errors['name'] = __('Please ensure name contains at least one Latin-based character.', array($classname));
 
 			$file = DATASOURCES . '/data.' . $classname . '.php';
 
@@ -1090,7 +1092,7 @@
 
 				// If there is a provider, get their template
 				if($providerClass) {
-					$dsShell = file_get_contents($providerClass::getTemplate());
+					$dsShell = file_get_contents(call_user_func(array($providerClass, 'getTemplate')));
 				}
 				else {
 					$dsShell = file_get_contents($this->getTemplate('blueprints.datasource'));
@@ -1105,7 +1107,7 @@
 
 				// If there is a provider, let them do the prepartion work
 				if($providerClass) {
-					$dsShell = $providerClass::prepare($fields, $params, $dsShell);
+					$dsShell = call_user_func(array($providerClass, 'prepare'), $fields, $params, $dsShell);
 				}
 				else {
 					switch($source){

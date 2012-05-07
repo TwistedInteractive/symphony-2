@@ -5,7 +5,7 @@
 (function($) {
 
 	/**
-	 * This plugin makes items collapsible.
+	 * Create collapsible elements.
 	 *
 	 * @name $.symphonyCollapsible
 	 * @class
@@ -15,9 +15,9 @@
 	 * @param {String} [options.handles='.header:first'] Selector to find clickable handles to trigger interaction
 	 * @param {String} [options.content='.content'] Selector to find hideable content area
 	 * @param {String} [options.save_state=true] Stores states of instances using local storage
-	 * @param {String} [options.storage='symphony.collapsible.id.env'] Namespace used for local storage
+	 * @param {String} [options.storage='symphony.collapsible.area.page.id'] Namespace used for local storage
 	 *
-	 *	@example
+	 * @example
 
 			var collapsible = $('#duplicator').symphonyCollapsible({
 				items:		'.instance',
@@ -33,7 +33,7 @@
 				content:			'.content',
 				ignore:				'.ignore',
 				save_state:			true,
-				storage: 			'symphony.collapsible.' + $('body').attr('id') + (Symphony.Context.get('env') ? '.' + Symphony.Context.get('env')[1] : '')
+				storage: 			'symphony.collapsible.' + window.location.href.split(Symphony.Context.get('root') + '/')[1].replace(/\//g, '.')
 			};
 
 		$.extend(settings, options);
@@ -42,9 +42,11 @@
 
 		objects.each(function collapsible(index) {
 			var object = $(this),
-				storage = settings.storage + '.' + index + '.collapsed';
+				storage = settings.storage + index + '.collapsed';
 
-		/*-------------------------------------------------------------------*/
+		/*---------------------------------------------------------------------
+			Events
+		---------------------------------------------------------------------*/
 
 			// Collapse item
 			object.on('collapse.collapsible', settings.items, function collapse(event, speed) {
@@ -90,13 +92,13 @@
 				var handle = $(this),
 					item = handle.parents(settings.items);
 
-				if(!handle.is(settings.ignore) && !$(event.target).is(settings.ignore)) {
+				if(!handle.is(settings.ignore) && !$(event.target).is(settings.ignore) && !item.is('.locked')) {
 
 					// Expand
 					if(item.is('.collapsed')) {
 						item.trigger('expand.collapsible');
 					}
-	
+
 					// Collapse
 					else {
 						item.trigger('collapse.collapsible');
@@ -116,7 +118,7 @@
 					if(item.is('.collapsed')) {
 						items.trigger('expand.collapsible');
 					}
-	
+
 					// Collaps all
 					else {
 						items.trigger('collapse.collapsible');
@@ -153,7 +155,9 @@
 				object.find(settings.items).trigger('store.collapsible');
 			});
 
-		/*-------------------------------------------------------------------*/
+		/*---------------------------------------------------------------------
+			Initialisation
+		---------------------------------------------------------------------*/
 
 			// Prepare interface
 			object.addClass('collapsible');

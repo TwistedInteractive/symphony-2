@@ -5,7 +5,8 @@
 (function($) {
 
 	/**
-	 * This plugin creates a Symphony duplicator.
+	 * Duplicators are advanced lists used throughout the
+	 * Symphony backend to manage repeatable content.
 	 *
 	 * @name $.symphonyDuplicator
 	 * @class
@@ -23,7 +24,7 @@
 	 * @param {Integer} [options.maximum=1000] Do not allow instances to be added above this limit
 	 * @param {String} [options.speed='fast'] Animation speed
 	 *
-	 *	@example
+	 * @example
 
 			$('.duplicator').symphonyDuplicator({
 				orderable: true,
@@ -41,6 +42,7 @@
 				collapsible:		false,
 				constructable:		true,
 				destructable:		true,
+				save_state:			true,
 				minimum:			0,
 				maximum:			1000,
 				speed:				'fast'
@@ -60,24 +62,40 @@
 
 		objects.each(function duplicators() {
 			var object = $(this),
-				instances = object.find(settings.instances).addClass('instance'),
-				templates = object.find(settings.templates).addClass('template'),
-				items = instances.add(templates),
-				headers = items.find(settings.headers),
-				duplicator = object.parent('.frame'),
 				apply = $('<fieldset class="apply" />'),
 				selector = $('<select />'),
-				constructor = $('<button type="button" class="constructor">' + (object.attr('data-add') || Symphony.Language.get('Add item')) + '</button>');
+				constructor = $('<button type="button" class="constructor" />'),
+				duplicator, list, instances, templates, items, headers, constructor, apply, selector;
 
-			// Check duplicator frame
-			if(duplicator.length == 0) {
-				duplicator = $('<div class="duplicator frame empty" />').insertBefore(object).prepend(object);
+			// New API (applying the plugin to the frame)
+			if(object.is('.frame')) {
+				duplicator = object;
+				list = duplicator.find('> ol');
 			}
+
+			// Old API (applying the plugin to the list)
+			// @deprecated to be removed in Symphony 2.4
 			else {
-				duplicator.addClass('duplicator').addClass('empty');
+				list = object;
+				duplicator = object.parent('.frame');
+
+				// Check if duplicator frame exists
+				if(duplicator.length == 0) {
+					duplicator = $('<div class="frame" />').insertBefore(list).prepend(list);
+				}
 			}
 
-		/*-------------------------------------------------------------------*/
+			// Initialise duplicator components
+			duplicator.addClass('duplicator').addClass('empty');
+			instances = list.find(settings.instances).addClass('instance');
+			templates = list.find(settings.templates).addClass('template');
+			items = instances.add(templates);
+			headers = items.find(settings.headers);
+			constructor.text(list.attr('data-add') || Symphony.Language.get('Add item'));
+
+		/*---------------------------------------------------------------------
+			Events
+		---------------------------------------------------------------------*/
 
 			// Construct instances
 			apply.on('click.duplicator', 'button.constructor:not(.disabled)', function construct(event, speed) {
@@ -87,7 +105,7 @@
 
 				instance.trigger('constructstart.duplicator');
 				instance.trigger('construct.duplicator'); /* deprecated */
-				instance.hide().appendTo(object);
+				instance.hide().appendTo(list);
 
 				// Duplicator is not empty
 				duplicator.removeClass('empty');
@@ -208,12 +226,14 @@
 				duplicator.find('.instance').trigger('refresh.duplicator');
 			});
 
-		/*-------------------------------------------------------------------*/
+		/*---------------------------------------------------------------------
+			Initialisation
+		---------------------------------------------------------------------*/
 
-			// Create content area
+			// Wrap content, if needed
 			headers.each(function wrapContent() {
-				header = $(this);
-				
+				var header = $(this);
+
 				if(header.next('.content').length == 0) {
 					header.nextAll().wrapAll('<div class="content" />');
 				}
@@ -228,7 +248,7 @@
 				// Populate selector
 				templates.each(function createTemplates() {
 					var template = $(this),
-						title = template.find(settings.headers).attr('data-name') || template.find(settings.headers + ' :first-child').text(),
+						title = template.find(settings.headers).attr('data-name') || template.find(settings.headers).text(),
 						value = template.attr('data-type');
 
 					template.trigger('constructstart.duplicator');
@@ -269,14 +289,15 @@
 			// Destructable interface
 			if(settings.destructable === true) {
 				duplicator.addClass('destructable');
-				headers.append('<a class="destructor">' + (object.attr('data-remove') || Symphony.Language.get('Remove item')) + '</a>');
+				headers.append('<a class="destructor">' + (list.attr('data-remove') || Symphony.Language.get('Remove item')) + '</a>');
 			}
 
 			// Collapsible interface
 			if(settings.collapsible) {
 				duplicator.symphonyCollapsible({
 					items: '.instance',
-					handles: 'header'
+					handles: 'header',
+					save_state: settings.save_state
 				});
 			}
 
