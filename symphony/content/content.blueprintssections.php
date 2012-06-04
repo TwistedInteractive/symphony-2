@@ -1221,12 +1221,12 @@
 				}
 			}
 			// Check if the hash of the section is unique:
-			if(count($index->xpath(sprintf('section[unique_hash=\'%s\']', (string)$sectionElement->unique_hash))) > 0)
+			if(count($index->xpath(sprintf('section[unique_hash=\'%s\']', (string)$sectionElement->unique_hash))) > 1)
 			{
 				return __('Duplicate hash found for this section.');
 			}
 			// Check if the section name is unique:
-			if(count($index->xpath(sprintf('section[name=\'%s\']', (string)$sectionElement->name))) > 0)
+			if(count($index->xpath(sprintf('section[name=\'%s\']', (string)$sectionElement->name))) > 1)
 			{
 				return __('There already exists a section with this name.');
 			}
