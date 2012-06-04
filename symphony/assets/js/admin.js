@@ -12,11 +12,13 @@
 			wrapper = html.find('#wrapper'),
 			header = wrapper.find('#header'),
 			nav = wrapper.find('#nav'),
-			sessions = header.find('#sessions'),
+			navContent = nav.find('ul.content'),
+			navStructure = nav.find('ul.structure'),
+			session = header.find('#session'),
 			context = wrapper.find('#context'),
 			contents = wrapper.find('#contents'),
 			form = contents.find('> form'),
-			user = sessions.find(' li:first a'),
+			user = session.find('li:first a'),
 			pagination = contents.find('ul.page');
 
 	/*--------------------------------------------------------------------------
@@ -57,6 +59,24 @@
 
 			return false;
 		};
+
+		// Navigation and notifier sizing
+		$(window).on('resize.admin', function() {
+			var width = navContent.width() + navStructure.width() + 20;
+
+			// Compact mode
+			if(width > $(window).width()) {
+				nav.removeClass('wide');
+			}
+
+			// Wide mode
+			else {
+				nav.addClass('wide');
+			}
+
+			// Refresh Notify height
+			header.find('.notifier').trigger('resize.notify');
+		});
 
 	/*--------------------------------------------------------------------------
 		Plugins - Tags, Pickable, Selectable, Notify and Drawers
@@ -526,7 +546,7 @@
 					var select = $(this),
 						optgroup = select.find('option:selected').parent(),
 						value = select.val().replace(/\W+/g, '_'),
-						group = optgroup.attr('label').replace(/\W+/g, '_');
+						group = optgroup.data('label') || optgroup.attr('label').replace(/\W+/g, '_');
 
 					// Show only relevant interface components based on context
 					area[(area.hasClass(value) || area.hasClass(group)) ^ area.hasClass('inverse') ? 'removeClass' : 'addClass']('irrelevant');
@@ -536,7 +556,7 @@
 			// Trigger the parameter name being remembered when the Datasource context changes
 			contents.find('#ds-context')
 				.on('change.admin', function() {
-					$('input[name="fields[name]"]').trigger('change.admin');
+					contents.find('input[name="fields[name]"]').trigger('blur.admin');
 				})
 				.trigger('change.admin');
 

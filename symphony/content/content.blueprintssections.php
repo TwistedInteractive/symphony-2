@@ -573,12 +573,12 @@
 						&& $s = SectionManager::fetchIDFromHandle(Lang::createHandle($meta['name']))
 						&& !is_null($s) && $s != $section_id
 					) {
-						$this->_errors['name'] = __('A Section with the name %s name already exists', array('<code>' . $meta['name'] . '</code>'));
+						$this->_errors['name'] = __('A Section with the name %s already exists', array('<code>' . $meta['name'] . '</code>'));
 						$canProceed = false;
 					}
 				}
 				elseif(!is_null(SectionManager::fetchIDFromHandle(Lang::createHandle($meta['name'])))) {
-					$this->_errors['name'] = __('A Section with the name %s name already exists', array('<code>' . $meta['name'] . '</code>'));
+					$this->_errors['name'] = __('A Section with the name %s already exists', array('<code>' . $meta['name'] . '</code>'));
 					$canProceed = false;
 				}
 
@@ -591,17 +591,17 @@
 
 				// Basic custom field checking
 				if(is_array($fields) && !empty($fields)){
-
 					// Check for duplicate CF names
 					if($canProceed) {
 						$name_list = array();
 
 						foreach($fields as $position => $data){
-							if(trim($data['element_name']) == '')
-								$data['element_name'] = $fields[$position]['element_name'] = Lang::createHandle($data['label'], 255, '-', false, true, array('@^[\d-]+@i' => ''));
+							if(trim($data['element_name']) == '') {
+								$data['element_name'] = $fields[$position]['element_name'] = $_POST['fields'][$position]['element_name'] = Lang::createHandle($data['label'], 255, '-', false, true, array('@^[\d-]+@i' => ''));
+							}
 
 							if(trim($data['element_name']) != '' && in_array($data['element_name'], $name_list)){
-								$this->_errors[$position] = array('label' => __('A field with that name already exists. All names must be unique.'));
+								$this->_errors[$position] = array('element_name' => __('A field with this handle already exists. All handle must be unique.'));
 								$canProceed = false;
 								break;
 							}
@@ -635,7 +635,6 @@
 							if(Field::__OK__ != $field->checkFields($errors, false) && !empty($errors)){
 								$this->_errors[$position] = $errors;
 								$canProceed = false;
-								break;
 							}
 						}
 					}

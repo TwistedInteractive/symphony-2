@@ -207,12 +207,13 @@
 
 					// Authors
 					$author = $r['author']['name'];
-
-					if(isset($r['author']['website'])) {
-						$author = Widget::Anchor($r['author']['name'], General::validateURL($r['author']['website']));
-					}
-					else if(isset($r['author']['email'])) {
-						$author = Widget::Anchor($r['author']['name'], 'mailto:' . $r['author']['email']);
+					if($author) {
+						if(isset($r['author']['website'])) {
+							$author = Widget::Anchor($r['author']['name'], General::validateURL($r['author']['website']));
+						}
+						else if(isset($r['author']['email'])) {
+							$author = Widget::Anchor($r['author']['name'], 'mailto:' . $r['author']['email']);
+						}
 					}
 
 					$author = Widget::TableData($author);
@@ -295,6 +296,12 @@
 									, Alert::ERROR
 								);
 								$canProceed = false;
+							}
+							else {
+								$pages = ResourceManager::getAttachedPages($resource_type, $handle);
+								foreach($pages as $page) {
+									ResourceManager::detach($resource_type, $handle, $page['id']);
+								}
 							}
 						}
 

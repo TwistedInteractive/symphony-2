@@ -29,13 +29,13 @@
 			if (!is_writable(CONFIG)) {
 				$this->pageAlert(__('The Symphony configuration file, %s, is not writable. You will not be able to save changes to preferences.', array('<code>/manifest/config.php</code>')), Alert::ERROR);
 				$bIsWritable = false;
-			} 
+			}
 			else if ($formHasErrors) {
 				$this->pageAlert(
 					__('An error occurred while processing this form. See below for details.')
 					, Alert::ERROR
 				);
-			} 
+			}
 			else if (isset($this->_context[0]) && $this->_context[0] == 'success') {
 				$this->pageAlert(__('Preferences saved.'), Alert::SUCCESS);
 			}
@@ -105,8 +105,13 @@
 			 * '/system/preferences/'
 			 * @param XMLElement $wrapper
 			 *  An XMLElement of the current page
+			 * @param array $errors
+			 *  An array of errors
 			 */
-			Symphony::ExtensionManager()->notifyMembers('AddCustomPreferenceFieldsets', '/system/preferences/', array('wrapper' => &$this->Form));
+			Symphony::ExtensionManager()->notifyMembers('AddCustomPreferenceFieldsets', '/system/preferences/', array(
+				'wrapper' => &$this->Form,
+				'errors' => $this->_errors
+			));
 
 			$div = new XMLElement('div');
 			$div->setAttribute('class', 'actions');
@@ -114,7 +119,6 @@
 			$attr = array('accesskey' => 's');
 			if(!$bIsWritable) $attr['disabled'] = 'disabled';
 			$div->appendChild(Widget::Input('action[save]', __('Save Changes'), 'submit', $attr));
-			$this->Form->prependChild(Widget::Input('action[save]', __('Save Changes'), 'submit', array_merge($attr, array('class' => 'irrelevant'))));
 
 			$this->Form->appendChild($div);
 		}
@@ -139,7 +143,7 @@
 
 				/**
 				 * Just prior to saving the preferences and writing them to the `CONFIG`
-				 * Allows extensions to preform custom validaton logic on the settings.
+				 * Allows extensions to preform custom validation logic on the settings.
 				 *
 				 * @delegate Save
 				 * @param string $context
@@ -161,7 +165,7 @@
 						}
 					}
 
-					Administration::instance()->saveConfig();
+					Symphony::Configuration()->write();
 
 					redirect(SYMPHONY_URL . '/system/preferences/success/');
 				}

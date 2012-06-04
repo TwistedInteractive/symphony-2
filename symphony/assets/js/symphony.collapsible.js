@@ -15,7 +15,7 @@
 	 * @param {String} [options.handles='.header:first'] Selector to find clickable handles to trigger interaction
 	 * @param {String} [options.content='.content'] Selector to find hideable content area
 	 * @param {String} [options.save_state=true] Stores states of instances using local storage
-	 * @param {String} [options.storage='symphony.collapsible.id.env'] Namespace used for local storage
+	 * @param {String} [options.storage='symphony.collapsible.area.page.id'] Namespace used for local storage
 	 *
 	 * @example
 
@@ -33,7 +33,7 @@
 				content:			'.content',
 				ignore:				'.ignore',
 				save_state:			true,
-				storage: 			'symphony.collapsible.' + $('body').attr('id') + (Symphony.Context.get('env') ? '.' + Symphony.Context.get('env')[1] : '')
+				storage: 			'symphony.collapsible.' + window.location.href.split(Symphony.Context.get('root') + '/')[1].replace(/\//g, '.')
 			};
 
 		$.extend(settings, options);
@@ -42,7 +42,7 @@
 
 		objects.each(function collapsible(index) {
 			var object = $(this),
-				storage = settings.storage + '.' + index + '.collapsed';
+				storage = settings.storage + index + '.collapsed';
 
 		/*---------------------------------------------------------------------
 			Events
@@ -92,7 +92,7 @@
 				var handle = $(this),
 					item = handle.parents(settings.items);
 
-				if(!handle.is(settings.ignore) && !$(event.target).is(settings.ignore)) {
+				if(!handle.is(settings.ignore) && !$(event.target).is(settings.ignore) && !item.is('.locked')) {
 
 					// Expand
 					if(item.is('.collapsed')) {
@@ -134,7 +134,14 @@
 							return index;
 						};
 					});
-					window.localStorage[storage] = collapsed.get().join(',');
+
+					// Put in a try/catch incase something goes wrong (no space, privileges etc)
+					try {
+						window.localStorage[storage] = collapsed.get().join(',');
+					}
+					catch(e) {
+						window.onerror(e.message);
+					}
 				}
 			});
 

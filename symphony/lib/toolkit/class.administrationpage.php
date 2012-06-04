@@ -315,19 +315,18 @@
 		 * This function initialises a lot of the basic elements that make up a Symphony
 		 * backend page such as the default stylesheets and scripts, the navigation and
 		 * the footer. Any alerts are also appended by this function. `view()` is called to
-		 * build the actual content of the page. Two delegates fire, `InitaliseAdminPageHead`
-		 * and `AppendElementBelowView` to allow extensions to add elements to the `<head>` and footer.
+		 * build the actual content of the page. The `InitaliseAdminPageHead` delegate
+		 * allows extensions to add elements to the `<head>`.
 		 *
 		 * @see view()
 		 * @uses InitaliseAdminPageHead
-		 * @uses AppendElementBelowView
 		 * @param array $context
 		 *  An associative array describing this pages context. This
 		 *  can include the section handle, the current entry_id, the page
 		 *  name and any flags such as 'saved' or 'created'. This list is not exhaustive
 		 *  and extensions can add their own keys to the array.
 		 */
-		public function build(Array $context = array()){
+		public function build(array $context = array()){
 			$this->_context = $context;
 
 			if(!$this->canAccessPage()){
@@ -604,12 +603,11 @@
 		}
 
 		/**
-		 * If `$this->Alert` is set, it will be prepended to the Form of this page.
-		 * A delegate is fired here to allow extensions to provide their
-		 * their own Alert messages to the page. Since Symphony 2.3, there may be
-		 * more than one `Alert` for a particular page. Alerts are displayed in
-		 * reverse order to what they were added, ie. the last Alert to be added will
-		 * be shown first, second will the be the second last Alert and so on.
+		 * If `$this->Alert` is set, it will be added to this page. The
+		 * `AppendPageAlert` delegate is fired to allow extensions to provide their
+		 * their own Alert messages for this page. Since Symphony 2.3, there may be
+		 * more than one `Alert` per page. Alerts are displayed in the order of
+		 * severity, with Errors first, then Success alerts followed by Notices.
 		 *
 		 * @uses AppendPageAlert
 		 */
@@ -624,6 +622,27 @@
 			 */
 			Symphony::ExtensionManager()->notifyMembers('AppendPageAlert', '/backend/');
 
+			// Errors first, success next, then notices.
+			function sortAlerts($a, $b) {
+				if($a->{'type'} == $b->{'type'}) return 0;
+
+				if(
+					($a->{'type'} == Alert::ERROR && $a->{'type'} != $b->{'type'})
+					or ($a->{'type'} == Alert::SUCCESS && $b->{'type'} == Alert::NOTICE)
+				) return -1;
+
+				return 1;
+			}
+
+			if(!is_array($this->Alert) || empty($this->Alert)) return;
+
+			usort($this->Alert, 'sortAlerts');
+
+			// Using prependChild ruins our order (it's backwards, but with most
+			// recent notices coming after oldest notices), so reversing the array
+			// fixes this. We need to prepend so that without Javascript the notices
+			// are at the top of the markup. See #1312
+			$this->Alert = array_reverse($this->Alert);
 			foreach($this->Alert as $alert){
 				$this->Header->prependChild($alert->asXML());
 			}
@@ -959,7 +978,7 @@
 		 * @return integer|boolean
 		 *  If the group is found, the index will be returned, otherwise false.
 		 */
-		private static function __navigationFindGroupIndex(Array $nav, $group){
+		private static function __navigationFindGroupIndex(array $nav, $group){
 			foreach($nav as $index => $item){
 				if($item['name'] == $group) return $index;
 			}
@@ -985,15 +1004,15 @@
 		 * @param string $pageroot
 		 *  The current page the Author is the viewing, minus any flags or URL
 		 *  parameters such as a Symphony object ID. eg. Section ID, Entry ID. This
-		 *  parameter is also be a regex, but this is highly unlikely.
+		 *  parameter is also be a regular expression, but this is highly unlikely.
 		 * @param boolean $pattern
-		 *  If set to true, the `$pageroot` represents a regex, and preg_match is
-		 *  invoked to determine the active navigation item. Defaults to false
+		 *  If set to true, the `$pageroot` represents a regular expression which will
+		 *  determine if the active navigation item
 		 * @return boolean
 		 *  Returns true if an active link was found, false otherwise. If true, the
 		 *  navigation group of the active link will be given the CSS class 'active'
 		 */
-		private static function __findActiveNavigationGroup(Array &$nav, $pageroot, $pattern=false){
+		private static function __findActiveNavigationGroup(array &$nav, $pageroot, $pattern=false){
 			foreach($nav as $index => $contents){
 				if(is_array($contents['children']) && !empty($contents['children'])){
 					foreach($contents['children'] as $item) {

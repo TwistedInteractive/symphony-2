@@ -90,9 +90,11 @@
 				}
 
 				foreach($group['records'] as $entry){
-					$xGroup->appendChild(
-						$this->processEntry($entry)
-					);
+					$xEntry = $this->processEntry($entry);
+
+					if($xEntry instanceof XMLElement) {
+						$xGroup->appendChild($xEntry);
+					}
 				}
 			}
 
@@ -115,7 +117,8 @@
 		 * by this datasource to the parameter pool.
 		 *
 		 * @param Entry $entry
-		 * @return XMLElement
+		 * @return XMLElement|boolean
+		 *  Returns boolean when only parameters are to be returned.
 		 */
 		public function processEntry(Entry $entry) {
 			$data = $entry->getData();
@@ -146,7 +149,7 @@
 				}
 			}
 
-			if($this->_param_output_only) continue;
+			if($this->_param_output_only) return true;
 
 			if(in_array('system:date', $this->dsParamINCLUDEDELEMENTS)){
 				$xEntry->appendChild(
@@ -375,7 +378,7 @@
 				$this->_force_empty_result = false; //this is so the section info element doesn't disappear.
 				$result = $this->emptyXMLSet();
 				$result->prependChild($sectioninfo);
-				return;
+				return $result;
 			}
 
 			if(is_array($this->dsParamINCLUDEDELEMENTS)) {
@@ -433,7 +436,7 @@
 			);
 
 			/**
-			 * Immediately after building entries allow modification of the Data Source entry list
+			 * Immediately after building entries allow modification of the Data Source entries array
 			 *
 			 * @delegate DataSourceEntriesBuilt
 			 * @param string $context
@@ -511,9 +514,11 @@
 						}
 
 						foreach($entries['records'] as $entry){
-							$result->appendChild(
-								$this->processEntry($entry)
-							);
+							$xEntry = $this->processEntry($entry);
+
+							if($xEntry instanceof XMLElement) {
+								$result->appendChild($xEntry);
+							}
 						}
 					}
 				}
