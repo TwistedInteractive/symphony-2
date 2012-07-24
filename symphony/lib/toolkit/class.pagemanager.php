@@ -68,7 +68,6 @@
 		 */
 		private function __generatePageXML($fields)
 		{
-
 			// Generate Page XML-file:
 			// Generate a unique hash, this only happens the first time this page is created:
 			if(!isset($fields['unique_hash']))
@@ -100,7 +99,7 @@
 				if(is_array($fields['events']))
 				{
 					$events = '<event>'.implode('</event><event>', $fields['events']).'</event>';
-				} elseif(is_string($fields['datasources'])) {
+				} elseif(is_string($fields['events'])) {
 					// For backward compatibility:
 					$events = '<event>'.implode('</event><event>', explode(',', $fields['events'])) .'</event>';
 				}
@@ -389,6 +388,7 @@
 		 * @return boolean
 		 */
 		public static function edit($page_id, array $fields, $delete_types = false){
+
 			if(!is_numeric($page_id)) return false;
 
 			if(isset($fields['id'])) unset($fields['id']);
