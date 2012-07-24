@@ -193,12 +193,12 @@
 				 * @param string $xml
 				 *  This pages XML, including the Parameters, Datasource and Event XML, by reference
 				 * @param string $xsl
-				 *  This pages XSLT
+				 *  This pages XSLT, by reference
 				 */
 				Symphony::ExtensionManager()->notifyMembers('FrontendOutputPreGenerate', '/frontend/', array(
 					'page'	=> &$this,
 					'xml'	=> &$this->_xml,
-					'xsl'	=> $this->_xsl
+					'xsl'	=> &$this->_xsl
 				));
 
 				if (is_null($devkit)) {
@@ -340,7 +340,7 @@
 				'current-page-id' => $page['id'],
 				'current-path' => $current_path,
 				'parent-path' => '/' . $page['path'],
-				'current-query-string' => XMLElement::stripInvalidXMLCharacters(utf8_encode(urldecode($querystring))),
+				'current-query-string' => self::sanitizeParameter($querystring),
 				'current-url' => URL . $current_path,
 				'upload-limit' => min($upload_size_php, $upload_size_sym),
 				'symphony-version' => Symphony::Configuration()->get('version', 'symphony'),
@@ -364,7 +364,15 @@
 					// the parameter being set.
 					if(!General::createHandle($key)) continue;
 
-					$this->_param['url-' . $key] = XMLElement::stripInvalidXMLCharacters(utf8_encode(urldecode($val)));
+					// Handle ?foo[bar]=hi as well as straight ?foo=hi RE: #1348
+					if(is_array($val)) {
+						$val = General::array_map_recursive(array('FrontendPage', 'sanitizeParameter'), $val);
+					}
+					else {
+						$val = self::sanitizeParameter($val);
+					}
+
+					$this->_param['url-' . $key] = $val;
 				}
 			}
 
@@ -921,6 +929,20 @@
 			}
 
 			return $list;
+		}
+
+		/**
+		 * Given a string (expected to be a URL parameter) this function will
+		 * ensure it is safe to embed in an XML document.
+		 *
+		 * @since Symphony 2.3.1
+		 * @param string $parameter
+		 *  The string to sanitize for XML
+		 * @return string
+		 *  The sanitized string
+		 */
+		public static function sanitizeParameter($parameter) {
+			return XMLElement::stripInvalidXMLCharacters(utf8_encode(urldecode($parameter)));
 		}
 
 		/**
