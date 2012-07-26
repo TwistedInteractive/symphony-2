@@ -102,6 +102,15 @@
 					$xpath .= ' and ';
 				}
 				$xpath .= $this->__processNavigationParentFilter($this->dsParamFILTERS['parent']);
+			} else {
+				// When no parent is set, only show the root pages:
+				if(!$closebracket) {
+					$closebracket = true;
+					$xpath .= '[';
+				} else {
+					$xpath .= ' and ';
+				}
+				$xpath .= '(not(path!=\'\'))';
 			}
 			if($closebracket) { $xpath .= ']'; }
 
