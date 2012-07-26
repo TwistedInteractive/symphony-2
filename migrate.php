@@ -125,7 +125,7 @@ put('Symphony Migration', true, true);
 
 $step = isset($_GET['step']) ? $_GET['step'] : 0;
 
-if(file_exists('migration_complete')) { header('Location: migrate.php?step=4'); }
+if(file_exists('migration_complete') && $step != 4) { header('Location: migrate.php?step=4'); }
 
 switch ($step) {
 	case 0 :
