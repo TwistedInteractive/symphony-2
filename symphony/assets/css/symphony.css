@@ -52,6 +52,11 @@ header, nav, section, aside, footer {
 	Basic styles
 -----------------------------------------------------------------------------*/
 
+html,
+body {
+	height: 100%;
+}
+
 body {
 	font: 68.75%/1.5 'Lucida Grande', Leelawadee, Tahoma, Verdana, sans-serif;
 	background: #fff;
@@ -76,6 +81,7 @@ p {
 }
 
 p.label {
+	position: relative;
 	margin: 0 0 2px;
 }
 
@@ -196,10 +202,15 @@ label {
 	position: relative;
 }
 
-label > i {
+label > i,
+p.label > i {
 	position: absolute;
 	right: 0;
 	top: 0;
+}
+
+label.inline-help > i {
+	position: relative;
 }
 
 /* States */

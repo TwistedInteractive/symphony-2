@@ -195,20 +195,6 @@
 		}
 
 		/**
-		 * Test whether this field can be imported. This default implementation
-		 * prohibits importing. Subclasses should override this is importing is
-		 * supported.
-		 *
-		 * @deprecated This function will be removed in the next major release. It
-		 *  is unused by Symphony.
-		 * @return boolean
-		 *	true if this can be imported, false otherwise.
-		 */
-		public function canImport(){
-			return false;
-		}
-
-		/**
 		 * Test whether this field can be prepopulated with data. This default
 		 * implementation does not support pre-population and, thus, returns false.
 		 *
@@ -635,7 +621,7 @@
 			$wrapper->appendChild(Widget::Input($name, 'no', 'hidden'));
 
 			$label = Widget::Label();
-			$label->setAttribute('class', 'column meta');
+			$label->setAttribute('class', 'column');
 			$input = Widget::Input($name, 'yes', 'checkbox');
 
 			if ($this->get('show_column') == 'yes') $input->setAttribute('checked', 'checked');
@@ -665,14 +651,16 @@
 			$wrapper->appendChild(Widget::Input($name, 'no', 'hidden'));
 
 			$label = Widget::Label();
-			$label->setAttribute('class', 'column meta');
+			$label->setAttribute('class', 'column');
+			if($help) $label->addClass('inline-help');
 			$input = Widget::Input($name, 'yes', 'checkbox');
 
 			if ($this->get('show_association') == 'yes') $input->setAttribute('checked', 'checked');
 
-			$label->setValue(__('%s Display relationship in entries table', array($input->generate())));
-
-			if ($help) $label->appendChild(new XMLElement('i', $help));
+			$label->setValue(__('%s Display relationship in entries table %s', array(
+				$input->generate(),
+				($help) ? ' <i>(' . $help . ')</i>' : ''
+			)));
 
 			$wrapper->appendChild($label);
 		}

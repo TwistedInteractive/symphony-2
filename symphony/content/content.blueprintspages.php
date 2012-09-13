@@ -280,10 +280,10 @@
 
 			$utilities = General::listStructure(UTILITIES, array('xsl'), false, 'asc', UTILITIES);
 			$utilities = $utilities['filelist'];
-			
+
 			if(is_array($utilities) && !empty($utilities)) {
 				$this->Form->setAttribute('class', 'two columns');
-			
+
 				$div = new XMLElement('div');
 				$div->setAttribute('class', 'secondary column');
 
@@ -417,11 +417,16 @@
 
 			if($existing) {
 				$template_name = $fields['handle'];
+				$page_url = URL . '/' . PageManager::resolvePagePath($page_id) . '/';
 				if($existing['parent']){
 					$parents = PageManager::resolvePagePath($existing['parent']);
 					$template_name = PageManager::createFilePath($parents, $fields['handle']);
 				}
-				$this->appendSubheading(__($title ? $title : __('Untitled')), Widget::Anchor(__('Edit Template'), SYMPHONY_URL . '/blueprints/pages/template/' . $template_name, __('Edit Page Template'), 'button', NULL, array('accesskey' => 't')));
+
+				$this->appendSubheading($title, array(
+					Widget::Anchor(__('View Page'), $page_url, __('View Page on Frontend'), 'button', NULL, array('target' => '_blank', 'accesskey' => 'v')),
+					Widget::Anchor(__('Edit Page Template'), SYMPHONY_URL . '/blueprints/pages/template/' . $template_name, __('Edit Page Template'), 'button', NULL, array('accesskey' => 't'))
+				));
 			}
 			else {
 				$this->appendSubheading(($title ? $title : __('Untitled')));
@@ -980,6 +985,7 @@
 
 		public function __actionDelete($pages, $redirect) {
 			$success = true;
+			$deleted_page_ids = array();
 
 			if(!is_array($pages)) $pages = array($pages);
 
@@ -999,7 +1005,7 @@
 			 */
 			Symphony::ExtensionManager()->notifyMembers('PagePreDelete', '/blueprints/pages/', array('page_ids' => &$pages, 'redirect' => &$redirect));
 
-			foreach ($pages as $page_id) {
+			foreach($pages as $page_id) {
 				$page = PageManager::fetchPageByID($page_id);
 
 				if(empty($page)) {
@@ -1035,10 +1041,25 @@
 					continue;
 				}
 
-				PageManager::delete($page_id, false);
+				if(PageManager::delete($page_id, false)) {
+					$deleted_page_ids[] = $page_id;
+				}
 			}
 
-			if($success) redirect($redirect);
+			if($success) {
+				/**
+				 * Fires after all Pages have been deleted
+				 *
+				 * @delegate PagePostDelete
+				 * @since Symphony 2.3
+				 * @param string $context
+				 * '/blueprints/pages/'
+				 * @param array $page_ids
+				 *  The page ID's that were just deleted
+				 */
+				Symphony::ExtensionManager()->notifyMembers('PagePostDelete', '/blueprints/pages/', array('page_ids' => $deleted_page_ids));
+				redirect($redirect);
+			}
 		}
 
 		/**

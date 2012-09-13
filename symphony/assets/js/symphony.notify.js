@@ -130,7 +130,7 @@
 		// Resize notifier
 		objects.on('resize.notify attachstop.notify', 'div.notifier', function resizeNotifer(event, item) {
 			var notifier = $(this),
-				active = item || notifier.find('.active:not(:animated)');				
+				active = item || notifier.find('.active:not(:animated)');
 
 			// Adjust height
 			if(!notifier.is('.constructing')) {
@@ -211,9 +211,15 @@
 
 			// Store exclusion rule
 			if(Symphony.Support.localStorage === true) {
-				storage = $.parseJSON(window.localStorage[settings.storage]) || [];
-				storage.push(text);
-				window.localStorage[settings.storage] = JSON.stringify(storage);
+				// Put in a try/catch incase we exceed storage space
+				try {
+					storage = $.parseJSON(window.localStorage[settings.storage]) || [];
+					storage.push(text);
+					window.localStorage[settings.storage] = JSON.stringify(storage);
+				}
+				catch(e) {
+					window.onerror(e.message);
+				}
 			}
 
 			// Remove item

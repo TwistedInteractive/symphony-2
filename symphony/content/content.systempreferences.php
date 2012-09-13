@@ -68,7 +68,7 @@
 			$email_gateway_manager = new EmailGatewayManager($this);
 			$email_gateways = $email_gateway_manager->listAll();
 			if(count($email_gateways) >= 1){
-				$group = new XMLElement('fieldset', NULL, array('class' => 'settings picker'));
+				$group = new XMLElement('fieldset', NULL, array('class' => 'settings condensed'));
 				$group->appendChild(new XMLElement('legend', __('Default Email Settings')));
 				$label = Widget::Label(__('Gateway'));
 
@@ -82,7 +82,7 @@
 				foreach($email_gateways as $handle => $details) {
 					$options[] = array($handle, (($handle == $default_gateway) || (($selected_is_installed == false) && $handle == 'sendmail')), $details['name']);
 				}
-				$select = Widget::Select('settings[Email][default_gateway]', $options);
+				$select = Widget::Select('settings[Email][default_gateway]', $options, array('class' => 'picker'));
 				$label->appendChild($select);
 				$group->appendChild($label);
 				// Append email gateway selection
@@ -105,8 +105,13 @@
 			 * '/system/preferences/'
 			 * @param XMLElement $wrapper
 			 *  An XMLElement of the current page
+			 * @param array $errors
+			 *  An array of errors
 			 */
-			Symphony::ExtensionManager()->notifyMembers('AddCustomPreferenceFieldsets', '/system/preferences/', array('wrapper' => &$this->Form));
+			Symphony::ExtensionManager()->notifyMembers('AddCustomPreferenceFieldsets', '/system/preferences/', array(
+				'wrapper' => &$this->Form,
+				'errors' => $this->_errors
+			));
 
 			$div = new XMLElement('div');
 			$div->setAttribute('class', 'actions');
@@ -138,7 +143,7 @@
 
 				/**
 				 * Just prior to saving the preferences and writing them to the `CONFIG`
-				 * Allows extensions to preform custom validaton logic on the settings.
+				 * Allows extensions to preform custom validation logic on the settings.
 				 *
 				 * @delegate Save
 				 * @param string $context
@@ -160,7 +165,7 @@
 						}
 					}
 
-					Administration::instance()->saveConfig();
+					Symphony::Configuration()->write();
 
 					redirect(SYMPHONY_URL . '/system/preferences/success/');
 				}

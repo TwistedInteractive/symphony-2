@@ -10,6 +10,7 @@
 	 */
 	require_once(TOOLKIT . '/class.gateway.php');
 	require_once(TOOLKIT . '/class.resourcespage.php');
+	require_once FACE . '/interface.provider.php';
 
 	Class contentBlueprintsDatasources extends ResourcesPage{
 
@@ -66,7 +67,7 @@
 				}
 			}
 
-			$providers = Symphony::ExtensionManager()->getProvidersOf('data-sources');
+			$providers = Symphony::ExtensionManager()->getProvidersOf(iProvider::DATASOURCE);
 
 			if(isset($_POST['fields'])){
 				$fields = $_POST['fields'];
@@ -90,12 +91,10 @@
 				$isEditing = true;
 				$handle = $this->_context[1];
 				$existing =& DatasourceManager::create($handle, array(), false);
-				$cache_id = null;
 
 				if (!$existing->allowEditorToParse()) redirect(SYMPHONY_URL . '/blueprints/datasources/info/' . $handle . '/');
 
 				$about = $existing->about();
-				$cache = new Cacheable(Symphony::Database());
 				$fields['name'] = $about['name'];
 
 				$fields['order'] = ($existing->dsParamORDER == 'rand' ? 'random' : $existing->dsParamORDER);
@@ -173,9 +172,7 @@
 					}
 				}
 			}
-
-			else{
-
+			else {
 				$fields['dynamic_xml']['url'] = '';
 				$fields['dynamic_xml']['cache'] = '30';
 				$fields['dynamic_xml']['xpath'] = '/';
@@ -188,10 +185,7 @@
 
 				$fields['order'] = 'desc';
 				$fields['associated_entry_counts'] = NULL;
-
 			}
-			
-			
 
 			$this->setPageType('form');
 			$this->setTitle(__(($isEditing ? '%1$s &ndash; %2$s &ndash; %3$s' : '%2$s &ndash; %3$s'), array($about['name'], __('Data Sources'), __('Symphony'))));
@@ -240,7 +234,7 @@
 
 			// Loop over the datasource providers
 			if(!empty($providers)) {
-				$p = array('label' => __('From extensions'), 'options' => array());
+				$p = array('label' => __('From extensions'), 'data-label' => 'from_extensions', 'options' => array());
 
 				foreach($providers as $providerClass => $provider) {
 					$p['options'][] = array(
@@ -277,7 +271,7 @@
 
 			foreach($field_groups as $section_id => $section_data){
 				$div = new XMLElement('div');
-				$div->setAttribute('class', 'contextual ' . $section_data['section']->get('id'));
+				$div->setAttribute('class', 'contextual ' . $section_id);
 
 				$ol = new XMLElement('ol');
 				$ol->setAttribute('class', 'filters-duplicator');
@@ -285,13 +279,13 @@
 				$ol->setAttribute('data-remove', __('Remove filter'));
 
 				// Add system:id filter
-				if(isset($fields['filter'][$section_data['section']->get('id')]['id'])){
+				if(isset($fields['filter'][$section_id]['id'])){
 					$li = new XMLElement('li');
 					$li->setAttribute('class', 'unique');
 					$li->setAttribute('data-type', 'id');
 					$li->appendChild(new XMLElement('header', '<h4>' . __('System ID') . '</h4>'));
 					$label = Widget::Label(__('Value'));
-					$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][id]', General::sanitize($fields['filter'][$section_data['section']->get('id')]['id'])));
+					$label->appendChild(Widget::Input('fields[filter]['.$section_id.'][id]', General::sanitize($fields['filter'][$section_id]['id'])));
 					$li->appendChild($label);
 					$ol->appendChild($li);
 				}
@@ -301,28 +295,54 @@
 				$li->setAttribute('data-type', 'id');
 				$li->appendChild(new XMLElement('header', '<h4>' . __('System ID') . '</h4>'));
 				$label = Widget::Label(__('Value'));
-				$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][id]'));
+				$label->appendChild(Widget::Input('fields[filter]['.$section_id.'][id]'));
 				$li->appendChild($label);
 				$ol->appendChild($li);
 
 				// Add system:date filter
-				if(isset($fields['filter'][$section_data['section']->get('id')]['system:date'])){
+				if(
+					isset($fields['filter'][$section_id]['system:creation-date'])
+					or isset($fields['filter'][$section_id]['system:date'])
+				) {
 					$li = new XMLElement('li');
 					$li->setAttribute('class', 'unique');
-					$li->setAttribute('data-type', 'system:date');
-					$li->appendChild(new XMLElement('header', '<h4>' . __('System Date') . '</h4>'));
+					$li->setAttribute('data-type', 'system:creation-date');
+					$li->appendChild(new XMLElement('header', '<h4>' . __('System Creation Date') . '</h4>'));
 					$label = Widget::Label(__('Value'));
-					$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][system:date]', General::sanitize($fields['filter'][$section_data['section']->get('id')]['system:date'])));
+					$creation_date = isset($fields['filter'][$section_id]['system:creation-date']) ? $fields['filter'][$section_id]['system:creation-date'] : $fields['filter'][$section_id]['system:date'];
+					$label->appendChild(
+						Widget::Input('fields[filter]['.$section_id.'][system:creation-date]', General::sanitize($creation_date))
+					);
 					$li->appendChild($label);
 					$ol->appendChild($li);
 				}
 
 				$li = new XMLElement('li');
 				$li->setAttribute('class', 'unique template');
-				$li->setAttribute('data-type', 'system:date');
-				$li->appendChild(new XMLElement('header', '<h4>' . __('System Date') . '</h4>'));
+				$li->setAttribute('data-type', 'system:creation-date');
+				$li->appendChild(new XMLElement('header', '<h4>' . __('System Creation Date') . '</h4>'));
 				$label = Widget::Label(__('Value'));
-				$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][system:date]'));
+				$label->appendChild(Widget::Input('fields[filter]['.$section_id.'][system:creation-date]'));
+				$li->appendChild($label);
+				$ol->appendChild($li);
+
+				if(isset($fields['filter'][$section_id]['system:modification-date'])){
+					$li = new XMLElement('li');
+					$li->setAttribute('class', 'unique');
+					$li->setAttribute('data-type', 'system:modification-date');
+					$li->appendChild(new XMLElement('header', '<h4>' . __('System Modified Date') . '</h4>'));
+					$label = Widget::Label(__('Value'));
+					$label->appendChild(Widget::Input('fields[filter]['.$section_id.'][system:modification-date]', General::sanitize($fields['filter'][$section_id]['system:modification-date'])));
+					$li->appendChild($label);
+					$ol->appendChild($li);
+				}
+
+				$li = new XMLElement('li');
+				$li->setAttribute('class', 'unique template');
+				$li->setAttribute('data-type', 'system:modification-date');
+				$li->appendChild(new XMLElement('header', '<h4>' . __('System Modified Date') . '</h4>'));
+				$label = Widget::Label(__('Value'));
+				$label->appendChild(Widget::Input('fields[filter]['.$section_id.'][system:modification-date]'));
 				$li->appendChild($label);
 				$ol->appendChild($li);
 
@@ -331,18 +351,18 @@
 
 						if(!$input->canFilter()) continue;
 
-						if(isset($fields['filter'][$section_data['section']->get('id')][$input->get('id')])){
+						if(isset($fields['filter'][$section_id][$input->get('id')])){
 							$wrapper = new XMLElement('li');
 							$wrapper->setAttribute('class', 'unique');
 							$wrapper->setAttribute('data-type', $input->get('element_name'));
-							$input->displayDatasourceFilterPanel($wrapper, $fields['filter'][$section_data['section']->get('id')][$input->get('id')], $this->_errors[$input->get('id')], $section_data['section']->get('id'));
+							$input->displayDatasourceFilterPanel($wrapper, $fields['filter'][$section_id][$input->get('id')], $this->_errors[$input->get('id')], $section_id);
 							$ol->appendChild($wrapper);
 						}
 
 						$wrapper = new XMLElement('li');
 						$wrapper->setAttribute('class', 'unique template');
 						$wrapper->setAttribute('data-type', $input->get('element_name'));
-						$input->displayDatasourceFilterPanel($wrapper, NULL, NULL, $section_data['section']->get('id'));
+						$input->displayDatasourceFilterPanel($wrapper, NULL, NULL, $section_id);
 						$ol->appendChild($wrapper);
 
 					}
@@ -448,7 +468,7 @@
 			$this->Form->appendChild($fieldset);
 
 			$fieldset = new XMLElement('fieldset');
-			$fieldset->setAttribute('class', 'settings contextual inverse navigation authors static_xml dynamic_xml From_extensions');
+			$fieldset->setAttribute('class', 'settings contextual inverse navigation authors static_xml dynamic_xml from_extensions');
 			$fieldset->appendChild(new XMLElement('legend', __('Sorting and Limiting')));
 
 			$p = new XMLElement('p',
@@ -485,8 +505,9 @@
 
 			foreach($field_groups as $section_id => $section_data){
 				$optgroup = array('label' => General::sanitize($section_data['section']->get('name')), 'options' => array(
-					array('system:id', ($fields['source'] == $section_data['section']->get('id') && $fields['sort'] == 'system:id'), __('System ID')),
-					array('system:date', ($fields['source'] == $section_data['section']->get('id') && $fields['sort'] == 'system:date'), __('System Date')),
+					array('system:id', ($fields['source'] == $section_id && $fields['sort'] == 'system:id'), __('System ID')),
+					array('system:creation-date', ($fields['source'] == $section_id && ($fields['sort'] == 'system:creation-date' || $fields['sort'] == 'system:date')), __('System Creation Date')),
+					array('system:modification-date', ($fields['source'] == $section_id && $fields['sort'] == 'system:modification-date'), __('System Modification Date')),
 				));
 
 				if(is_array($section_data['fields']) && !empty($section_data['fields'])){
@@ -496,7 +517,7 @@
 
 						$optgroup['options'][] = array(
 							$input->get('element_name'),
-							($fields['source'] == $section_data['section']->get('id') && $input->get('element_name') == $fields['sort']),
+							($fields['source'] == $section_id && $input->get('element_name') == $fields['sort']),
 							$input->get('label')
 						);
 					}
@@ -544,7 +565,7 @@
 			$this->Form->appendChild($fieldset);
 
 			$fieldset = new XMLElement('fieldset');
-			$fieldset->setAttribute('class', 'settings contextual inverse navigation static_xml dynamic_xml From_extensions');
+			$fieldset->setAttribute('class', 'settings contextual inverse navigation static_xml dynamic_xml from_extensions');
 			$fieldset->appendChild(new XMLElement('legend', __('Output Options')));
 
 			$label = Widget::Label(__('Required URL Parameter'));
@@ -587,12 +608,21 @@
 			foreach($field_groups as $section_id => $section_data){
 				$optgroup = array('label' => $section_data['section']->get('name'), 'options' => array());
 
-				foreach(array('id', 'date', 'author') as $p){
-					$optgroup['options'][] = array(
+				foreach(array('id', 'creation-date', 'modification-date', 'author') as $p){
+					$option = array(
 						'system:' . $p,
-						($fields['source'] == $section_data['section']->get('id') && in_array('system:' . $p, $fields['param'])),
+						($fields['source'] == $section_id && in_array('system:' . $p, $fields['param'])),
 						$prefix . 'system-' . $p
 					);
+
+					// Handle 'system:date' as an output paramater (backwards compatibility)
+					if($p === 'creation-date') {
+						if($fields['source'] == $section_id && in_array('system:date', $fields['param'])) {
+							$option[1] = true;
+						}
+					}
+
+					$optgroup['options'][] = $option;
 				}
 
 				$authorOverride = false;
@@ -604,7 +634,7 @@
 
 						$optgroup['options'][] = array(
 							$input->get('element_name'),
-							($fields['source'] == $section_data['section']->get('id') && in_array($input->get('element_name'), $fields['param'])),
+							($fields['source'] == $section_id && in_array($input->get('element_name'), $fields['param'])),
 							$prefix . $input->get('element_name')
 						);
 					}
@@ -638,11 +668,11 @@
 
 						if($input->get('element_name') == 'author') $authorOverride = true;
 
-						$optgroup['options'][] = array($input->get('id'), ($fields['source'] == $section_data['section']->get('id') && $fields['group'] == $input->get('id')), $input->get('label'));
+						$optgroup['options'][] = array($input->get('id'), ($fields['source'] == $section_id && $fields['group'] == $input->get('id')), $input->get('label'));
 					}
 				}
 
-				if(!$authorOverride) $optgroup['options'][] = array('author', ($fields['source'] == $section_data['section']->get('id') && $fields['group'] == 'author'), __('Author'));
+				if(!$authorOverride) $optgroup['options'][] = array('author', ($fields['source'] == $section_id && $fields['group'] == 'author'), __('Author'));
 
 				$options[] = $optgroup;
 			}
@@ -668,23 +698,26 @@
 					'options' => array(
 						array(
 							'system:pagination',
-							($fields['source'] == $section_data['section']->get('id') && in_array('system:pagination', $fields['xml_elements'])),
+							($fields['source'] == $section_id && in_array('system:pagination', $fields['xml_elements'])),
 							'system: pagination'
+						),
+						array(
+							'system:date',
+							($fields['source'] == $section_id && in_array('system:date', $fields['xml_elements'])),
+							'system: date'
 						)
 					)
 				);
-				
-				
 
 				if(is_array($section_data['fields']) && !empty($section_data['fields'])){
 					foreach($section_data['fields'] as $field){
 						$elements = $field->fetchIncludableElements();
-						
+
 						if(is_array($elements) && !empty($elements)){
 							foreach($elements as $name){
 								$selected = false;
 
-								if($fields['source'] == $section_data['section']->get('id') && in_array($name, $fields['xml_elements'])){
+								if($fields['source'] == $section_id && in_array($name, $fields['xml_elements'])){
 									$selected = true;
 								}
 
@@ -744,14 +777,20 @@
 
 			$ol = new XMLElement('ol');
 			$ol->setAttribute('class', 'filters-duplicator');
-			$ol->setAttribute('data-add', __('Add filter'));
-			$ol->setAttribute('data-remove', __('Remove filter'));
+			$ol->setAttribute('data-add', __('Add namespace'));
+			$ol->setAttribute('data-remove', __('Remove namespace'));
 
-			if(is_array($fields['dynamic_xml']['namespace']['name'])){
-				$namespaces = $fields['dynamic_xml']['namespace']['name'];
-				$uri = $fields['dynamic_xml']['namespace']['uri'];
+			if(is_array($fields['dynamic_xml']['namespace'])){
+				$i = 0;
+				foreach($fields['dynamic_xml']['namespace'] as $name => $uri){
+					// Namespaces get saved to the file as $name => $uri, however in
+					// the $_POST they are represented as $index => array. This loop
+					// patches the difference.
+					if(is_array($uri)) {
+						$name = $uri['name'];
+						$uri = $uri['uri'];
+					}
 
-				for($ii = 0; $ii < count($namespaces); $ii++){
 					$li = new XMLElement('li');
 					$li->appendChild(new XMLElement('header', '<h4>' . __('Namespace') . '</h4>'));
 
@@ -759,15 +798,16 @@
 					$group->setAttribute('class', 'group');
 
 					$label = Widget::Label(__('Name'));
-					$label->appendChild(Widget::Input('fields[dynamic_xml][namespace][name][]', General::sanitize($namespaces[$ii])));
+					$label->appendChild(Widget::Input('fields[dynamic_xml][namespace][' . $i .'][name]', General::sanitize($name)));
 					$group->appendChild($label);
 
 					$label = Widget::Label(__('URI'));
-					$label->appendChild(Widget::Input('fields[dynamic_xml][namespace][uri][]', General::sanitize($uri[$ii])));
+					$label->appendChild(Widget::Input('fields[dynamic_xml][namespace][' . $i .'][uri]', General::sanitize($uri)));
 					$group->appendChild($label);
 
 					$li->appendChild($group);
 					$ol->appendChild($li);
+					$i++;
 				}
 			}
 
@@ -780,11 +820,11 @@
 			$group->setAttribute('class', 'group');
 
 			$label = Widget::Label(__('Name'));
-			$label->appendChild(Widget::Input('fields[dynamic_xml][namespace][name][]'));
+			$label->appendChild(Widget::Input('fields[dynamic_xml][namespace][-1][name]'));
 			$group->appendChild($label);
 
 			$label = Widget::Label(__('URI'));
-			$label->appendChild(Widget::Input('fields[dynamic_xml][namespace][uri][]'));
+			$label->appendChild(Widget::Input('fields[dynamic_xml][namespace][-1][uri]'));
 			$group->appendChild($label);
 
 			$li->appendChild($group);
@@ -834,7 +874,13 @@
 		// creating a 'big' page and then hiding the fields with JS
 			if(!empty($providers)) {
 				foreach($providers as $providerClass => $provider) {
-					call_user_func(array($providerClass, 'buildEditor'), $this->Form, &$this->_errors, $fields, $handle);
+					if (PHP_VERSION_ID >= 50300) {
+						$providerClass::buildEditor($this->Form, $this->_errors, $fields, $handle);
+					}
+					// PHP 5.2 does not support late static binding..
+					else{
+						call_user_func_array(array($providerClass, 'buildEditor'), $this->Form, array(&$this->_errors, $fields, $handle));
+					}
 				}
 			}
 
@@ -950,21 +996,11 @@
 					);
 				}
 				else {
-					$pages = PageManager::fetch(false, array('data_sources', 'id'), array("
-						`data_sources` REGEXP '[[:<:]]" . $this->_context[1] . "[[:>:]]'
-					"));
-
-					if(is_array($pages) && !empty($pages)){
-						foreach($pages as $page){
-							$data_sources = preg_split('/\s*,\s*/', $page['data_sources'], -1, PREG_SPLIT_NO_EMPTY);
-							$data_sources = array_flip($data_sources);
-							unset($data_sources[$this->_context[1]]);
-
-							$page['data_sources'] = implode(',', array_flip($data_sources));
-
-							PageManager::edit($page['id'], $page);
-						}
+					$pages = ResourceManager::getAttachedPages(RESOURCE_TYPE_DS, $this->_context[1]);
+					foreach($pages as $page) {
+						ResourceManager::detach(RESOURCE_TYPE_DS, $this->_context[1], $page['id']);
 					}
+
 					redirect(SYMPHONY_URL . '/blueprints/datasources/');
 				}
 			}
@@ -977,7 +1013,7 @@
 		public function __formAction(){
 			$fields = $_POST['fields'];
 			$this->_errors = array();
-			$providers = Symphony::ExtensionManager()->getProvidersOf('data-sources');
+			$providers = Symphony::ExtensionManager()->getProvidersOf(iProvider::DATASOURCE);
 			$providerClass = null;
 
 			if(trim($fields['name']) == '') $this->_errors['name'] = __('This is a required field');
@@ -992,7 +1028,7 @@
 
 					General::validateXML($fields['static_xml'], $xml_errors, false, new XsltProcess());
 
-					if(!empty($xml_errors)) $this->_errors['static_xml'] = __('XML is invalid');
+					if(!empty($xml_errors)) $this->_errors['static_xml'] = __('XML is invalid.');
 				}
 			}
 
@@ -1043,10 +1079,18 @@
 			// See if a Provided Datasource is saved
 			elseif (!empty($providers)) {
 				foreach($providers as $providerClass => $provider) {
-					if($fields['source'] == call_user_func(array($providerClass, 'getSource'))) {
-						call_user_func(array($providerClass, 'validate'), &$fields, &$this->_errors);
+					if (PHP_VERSION_ID >= 50300) {
+						if($fields['source'] == $providerClass::getSource()) {
+							$providerClass::validate($fields, $this->_errors);
+							break;
+						}
+					}
+					// PHP 5.2 does not support late static binding..
+					else if($fields['source'] == call_user_func(array($providerClass, 'getSource'))) {
+						call_user_func_array(array($providerClass, 'validate'), array(&$fields, &$this->_errors));
 						break;
 					}
+
 					unset($providerClass);
 				}
 			}
@@ -1102,7 +1146,6 @@
 				self::injectAboutInformation($dsShell, $about);
 
 				// Do dependencies, the template file must have <!-- CLASS NAME -->
-				// and <!-- DS DEPENDENCY LIST --> tokens
 				$dsShell = str_replace('<!-- CLASS NAME -->', $classname, $dsShell);
 
 				// If there is a provider, let them do the prepartion work
@@ -1152,9 +1195,9 @@
 								if (isset($matches[2][0])) {
 									$detected_namespaces = array();
 
-									foreach ($fields['dynamic_xml']['namespace'] as $index => $namespace) {
-										$detected_namespaces[] = $namespace['name'];
-										$detected_namespaces[] = $namespace['uri'];
+									foreach ($fields['dynamic_xml']['namespace'] as $name => $uri) {
+										$detected_namespaces[] = $name;
+										$detected_namespaces[] = $uri;
 									}
 
 									foreach ($matches[2] as $index => $uri) {
@@ -1183,7 +1226,6 @@
 							$params['cache'] = $fields['dynamic_xml']['cache'];
 							$params['format'] = $fields['dynamic_xml']['format'];
 							$params['timeout'] = (isset($fields['dynamic_xml']['timeout']) ? (int)$fields['dynamic_xml']['timeout'] : '6');
-
 
 							break;
 
@@ -1234,12 +1276,12 @@
 					$this->__injectVarList($dsShell, $params);
 					$this->__injectIncludedElements($dsShell, $elements);
 					self::injectFilters($dsShell, $filters);
-					
+
 					if(preg_match_all('@(\$ds-[0-9a-z_\.\-]+)@i', $dsShell, $matches)){
 						$dependencies = General::array_remove_duplicates($matches[1]);
 						$dsShell = str_replace('<!-- DS DEPENDENCY LIST -->', "'" . implode("', '", $dependencies) . "'", $dsShell);
 					}
-					
+
 					$dsShell = str_replace('<!-- CLASS EXTENDS -->', $extends, $dsShell);
 					$dsShell = str_replace('<!-- SOURCE -->', $source, $dsShell);
 				}
@@ -1313,15 +1355,15 @@
 				$dsShell = preg_replace(array('/<!--[\w ]++-->/', '/(\r\n){2,}/', '/(\t+[\r\n]){2,}/'), '', $dsShell);
 
 				// Write the file
-				if(!is_writable(dirname($file)) || !$write = General::writeFile($file, $dsShell, Symphony::Configuration()->get('write_mode', 'file')))
+				if(!is_writable(dirname($file)) || !$write = General::writeFile($file, $dsShell, Symphony::Configuration()->get('write_mode', 'file'))) {
 					$this->pageAlert(
 						__('Failed to write Data source to disk.')
 						. ' ' . __('Please check permissions on %s.', array('<code>/workspace/data-sources</code>'))
 						, Alert::ERROR
 					);
-
+				}
 				// Write Successful, add record to the database
-				else{
+				else {
 
 					if($queueForDeletion){
 						General::deleteFile($queueForDeletion);
@@ -1351,7 +1393,9 @@
 						 * @param string $file
 						 *  The path to the Datasource file
 						 */
-						Symphony::ExtensionManager()->notifyMembers('DatasourcePostCreate', '/blueprints/datasources/', array('file' => $file));
+						Symphony::ExtensionManager()->notifyMembers('DatasourcePostCreate', '/blueprints/datasources/', array(
+							'file' => $file
+						));
 					}
 					else {
 						/**
@@ -1363,8 +1407,15 @@
 						 * '/blueprints/datasources/'
 						 * @param string $file
 						 *  The path to the Datasource file
+						 * @param string $previous_file
+						 *  The path of the previous Datasource file in the case where a Datasource may
+						 *  have been renamed. To get the handle from this value, see
+						 *  `DatasourceManager::__getHandleFromFilename`
 						 */
-						Symphony::ExtensionManager()->notifyMembers('DatasourcePostEdit', '/blueprints/datasources/', array('file' => $file));
+						Symphony::ExtensionManager()->notifyMembers('DatasourcePostEdit', '/blueprints/datasources/', array(
+							'file' => $file,
+							'previous_file' => ($queueForDeletion) ? $queueForDeletion : null
+						));
 					}
 
 					redirect(SYMPHONY_URL . '/blueprints/datasources/edit/'.$classname.'/'.($this->_context[0] == 'new' ? 'created' : 'saved') . '/');

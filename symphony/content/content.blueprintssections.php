@@ -121,7 +121,6 @@
 
 			if(!$showEmptyTemplate) ksort($fields);
 
-			$meta['entry_order'] = (isset($meta['entry_order']) ? $meta['entry_order'] : 'date');
 			$meta['hidden'] = (isset($meta['hidden']) ? 'yes' : 'no');
 
 			// Set navigation group, if not already set
@@ -267,7 +266,7 @@
 			$section_id = $this->_context[1];
 
 			if(!$section = SectionManager::fetch($section_id)) {
-				Administration::instance()->customError(__('Unknown Section'), __('The Section you are looking for could not be found.'));
+				Administration::instance()->customError(__('Unknown Section'), __('The Section, %s, could not be found.', array($section_id)));
 			}
 			$meta = $section->get();
 			$section_id = $meta['id'];
@@ -324,8 +323,6 @@
 				$fields = FieldManager::fetch(NULL, $section_id);
 				$fields = array_values($fields);
 			}
-
-			$meta['entry_order'] = (isset($meta['entry_order']) ? $meta['entry_order'] : 'date');
 
 			if(isset($_POST['meta'])){
 				$meta = $_POST['meta'];
@@ -585,14 +582,14 @@
 
 				// Basic custom field checking
 				if(is_array($fields) && !empty($fields)){
-
 					// Check for duplicate CF names
 					if($canProceed) {
 						$name_list = array();
 
 						foreach($fields as $position => $data){
-							if(trim($data['element_name']) == '')
-								$data['element_name'] = $fields[$position]['element_name'] = Lang::createHandle($data['label'], 255, '-', false, true, array('@^[\d-]+@i' => ''));
+							if(trim($data['element_name']) == '') {
+								$data['element_name'] = $fields[$position]['element_name'] = $_POST['fields'][$position]['element_name'] = Lang::createHandle($data['label'], 255, '-', false, true, array('@^[\d-]+@i' => ''));
+							}
 
 							if(trim($data['element_name']) != '' && in_array($data['element_name'], $name_list)){
 								$this->_errors[$position] = array('element_name' => __('A field with this handle already exists. All handle must be unique.'));
@@ -627,7 +624,6 @@
 							if(Field::__OK__ != $field->checkFields($errors, false) && !empty($errors)){
 								$this->_errors[$position] = $errors;
 								$canProceed = false;
-								break;
 							}
 						}
 					}
