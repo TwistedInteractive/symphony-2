@@ -10,6 +10,7 @@
 	 */
 	require_once(TOOLKIT . '/class.gateway.php');
 	require_once(TOOLKIT . '/class.resourcespage.php');
+	require_once FACE . '/interface.provider.php';
 
 	Class contentBlueprintsDatasources extends ResourcesPage{
 
@@ -66,7 +67,7 @@
 				}
 			}
 
-			$providers = Symphony::ExtensionManager()->getProvidersOf('data-sources');
+			$providers = Symphony::ExtensionManager()->getProvidersOf(iProvider::DATASOURCE);
 
 			if(isset($_POST['fields'])){
 				$fields = $_POST['fields'];
@@ -90,12 +91,10 @@
 				$isEditing = true;
 				$handle = $this->_context[1];
 				$existing =& DatasourceManager::create($handle, array(), false);
-				$cache_id = null;
 
 				if (!$existing->allowEditorToParse()) redirect(SYMPHONY_URL . '/blueprints/datasources/info/' . $handle . '/');
 
 				$about = $existing->about();
-				$cache = new Cacheable(Symphony::Database());
 				$fields['name'] = $about['name'];
 
 				$fields['order'] = ($existing->dsParamORDER == 'rand' ? 'random' : $existing->dsParamORDER);
@@ -276,7 +275,7 @@
 				$lookupName = 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id'));
 
 				$div = new XMLElement('div');
-				$div->setAttribute('class', 'contextual ' . $section_data['section']->get('id'));
+				$div->setAttribute('class', 'contextual ' . $section_id);
 
 				$ol = new XMLElement('ol');
 				$ol->setAttribute('class', 'filters-duplicator');
@@ -290,7 +289,7 @@
 					$li->setAttribute('data-type', 'id');
 					$li->appendChild(new XMLElement('header', '<h4>' . __('System ID') . '</h4>'));
 					$label = Widget::Label(__('Value'));
-					$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][id]', General::sanitize($fields['filter'][$lookupName]['id'])));
+					$label->appendChild(Widget::Input('fields[filter]['.$section_id.'][id]', General::sanitize($fields['filter'][$lookupName]['id'])));
 					$li->appendChild($label);
 					$ol->appendChild($li);
 				}
@@ -300,28 +299,54 @@
 				$li->setAttribute('data-type', 'id');
 				$li->appendChild(new XMLElement('header', '<h4>' . __('System ID') . '</h4>'));
 				$label = Widget::Label(__('Value'));
-				$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][id]'));
+				$label->appendChild(Widget::Input('fields[filter]['.$section_id.'][id]'));
 				$li->appendChild($label);
 				$ol->appendChild($li);
 
 				// Add system:date filter
-				if(isset($fields['filter'][$lookupName]['system:date'])){
+				if(
+					isset($fields['filter'][$lookupName]['system:creation-date'])
+					or isset($fields['filter'][$lookupName]['system:date'])
+				) {
 					$li = new XMLElement('li');
 					$li->setAttribute('class', 'unique');
-					$li->setAttribute('data-type', 'system:date');
-					$li->appendChild(new XMLElement('header', '<h4>' . __('System Date') . '</h4>'));
+					$li->setAttribute('data-type', 'system:creation-date');
+					$li->appendChild(new XMLElement('header', '<h4>' . __('System Creation Date') . '</h4>'));
 					$label = Widget::Label(__('Value'));
-					$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][system:date]', General::sanitize($fields['filter'][$lookupName]['system:date'])));
+					$creation_date = isset($fields['filter'][$section_id]['system:creation-date']) ? $fields['filter'][$section_id]['system:creation-date'] : $fields['filter'][$section_id]['system:date'];
+					$label->appendChild(
+						Widget::Input('fields[filter]['.$section_id.'][system:creation-date]', General::sanitize($creation_date))
+					);
 					$li->appendChild($label);
 					$ol->appendChild($li);
 				}
 
 				$li = new XMLElement('li');
 				$li->setAttribute('class', 'unique template');
-				$li->setAttribute('data-type', 'system:date');
-				$li->appendChild(new XMLElement('header', '<h4>' . __('System Date') . '</h4>'));
+				$li->setAttribute('data-type', 'system:creation-date');
+				$li->appendChild(new XMLElement('header', '<h4>' . __('System Creation Date') . '</h4>'));
 				$label = Widget::Label(__('Value'));
-				$label->appendChild(Widget::Input('fields[filter]['.$section_data['section']->get('id').'][system:date]'));
+				$label->appendChild(Widget::Input('fields[filter]['.$section_id.'][system:creation-date]'));
+				$li->appendChild($label);
+				$ol->appendChild($li);
+
+				if(isset($fields['filter'][$section_id]['system:modification-date'])){
+					$li = new XMLElement('li');
+					$li->setAttribute('class', 'unique');
+					$li->setAttribute('data-type', 'system:modification-date');
+					$li->appendChild(new XMLElement('header', '<h4>' . __('System Modified Date') . '</h4>'));
+					$label = Widget::Label(__('Value'));
+					$label->appendChild(Widget::Input('fields[filter]['.$section_id.'][system:modification-date]', General::sanitize($fields['filter'][$section_id]['system:modification-date'])));
+					$li->appendChild($label);
+					$ol->appendChild($li);
+				}
+
+				$li = new XMLElement('li');
+				$li->setAttribute('class', 'unique template');
+				$li->setAttribute('data-type', 'system:modification-date');
+				$li->appendChild(new XMLElement('header', '<h4>' . __('System Modified Date') . '</h4>'));
+				$label = Widget::Label(__('Value'));
+				$label->appendChild(Widget::Input('fields[filter]['.$section_id.'][system:modification-date]'));
 				$li->appendChild($label);
 				$ol->appendChild($li);
 
@@ -343,7 +368,7 @@
 						$wrapper = new XMLElement('li');
 						$wrapper->setAttribute('class', 'unique template');
 						$wrapper->setAttribute('data-type', $input->get('element_name'));
-						$input->displayDatasourceFilterPanel($wrapper, NULL, NULL, $section_data['section']->get('id'));
+						$input->displayDatasourceFilterPanel($wrapper, NULL, NULL, $section_id);
 						$ol->appendChild($wrapper);
 
 					}
@@ -489,8 +514,14 @@
 				$lookupName = 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id'));
 
 				$optgroup = array('label' => General::sanitize($section_data['section']->get('name')), 'options' => array(
+<<<<<<< HEAD
 					array('system:id', ($fields['source'] == $lookupName && $fields['sort'] == 'system:id'), __('System ID')),
 					array('system:date', ($fields['source'] == $lookupName && $fields['sort'] == 'system:date'), __('System Date')),
+=======
+					array('system:id', ($fields['source'] == $section_id && $fields['sort'] == 'system:id'), __('System ID')),
+					array('system:creation-date', ($fields['source'] == $section_id && ($fields['sort'] == 'system:creation-date' || $fields['sort'] == 'system:date')), __('System Creation Date')),
+					array('system:modification-date', ($fields['source'] == $section_id && $fields['sort'] == 'system:modification-date'), __('System Modification Date')),
+>>>>>>> upstream/integration
 				));
 
 				if(is_array($section_data['fields']) && !empty($section_data['fields'])){
@@ -500,7 +531,11 @@
 
 						$optgroup['options'][] = array(
 							$input->get('element_name'),
+<<<<<<< HEAD
 							($fields['source'] == $lookupName && $input->get('element_name') == $fields['sort']),
+=======
+							($fields['source'] == $section_id && $input->get('element_name') == $fields['sort']),
+>>>>>>> upstream/integration
 							$input->get('label')
 						);
 					}
@@ -591,12 +626,25 @@
 			foreach($field_groups as $section_id => $section_data){
 				$optgroup = array('label' => $section_data['section']->get('name'), 'options' => array());
 
-				foreach(array('id', 'date', 'author') as $p){
-					$optgroup['options'][] = array(
+				foreach(array('id', 'creation-date', 'modification-date', 'author') as $p){
+					$option = array(
 						'system:' . $p,
+<<<<<<< HEAD
 						($fields['source'] == 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id')) && in_array('system:' . $p, $fields['param'])),
+=======
+						($fields['source'] == $section_id && in_array('system:' . $p, $fields['param'])),
+>>>>>>> upstream/integration
 						$prefix . 'system-' . $p
 					);
+
+					// Handle 'system:date' as an output paramater (backwards compatibility)
+					if($p === 'creation-date') {
+						if($fields['source'] == $section_id && in_array('system:date', $fields['param'])) {
+							$option[1] = true;
+						}
+					}
+
+					$optgroup['options'][] = $option;
 				}
 
 				$authorOverride = false;
@@ -608,7 +656,11 @@
 
 						$optgroup['options'][] = array(
 							$input->get('element_name'),
+<<<<<<< HEAD
 							($fields['source'] == 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id')) && in_array($input->get('element_name'), $fields['param'])),
+=======
+							($fields['source'] == $section_id && in_array($input->get('element_name'), $fields['param'])),
+>>>>>>> upstream/integration
 							$prefix . $input->get('element_name')
 						);
 					}
@@ -642,11 +694,11 @@
 
 						if($input->get('element_name') == 'author') $authorOverride = true;
 
-						$optgroup['options'][] = array($input->get('id'), ($fields['source'] == $section_data['section']->get('id') && $fields['group'] == $input->get('id')), $input->get('label'));
+						$optgroup['options'][] = array($input->get('id'), ($fields['source'] == $section_id && $fields['group'] == $input->get('id')), $input->get('label'));
 					}
 				}
 
-				if(!$authorOverride) $optgroup['options'][] = array('author', ($fields['source'] == $section_data['section']->get('id') && $fields['group'] == 'author'), __('Author'));
+				if(!$authorOverride) $optgroup['options'][] = array('author', ($fields['source'] == $section_id && $fields['group'] == 'author'), __('Author'));
 
 				$options[] = $optgroup;
 			}
@@ -672,13 +724,20 @@
 					'options' => array(
 						array(
 							'system:pagination',
+<<<<<<< HEAD
 							($fields['source'] == 'section:'.SectionManager::lookup()->getHash($section_data['section']->get('id')) && in_array('system:pagination', $fields['xml_elements'])),
+=======
+							($fields['source'] == $section_id && in_array('system:pagination', $fields['xml_elements'])),
+>>>>>>> upstream/integration
 							'system: pagination'
+						),
+						array(
+							'system:date',
+							($fields['source'] == $section_id && in_array('system:date', $fields['xml_elements'])),
+							'system: date'
 						)
 					)
 				);
-
-
 
 				if(is_array($section_data['fields']) && !empty($section_data['fields'])){
 					foreach($section_data['fields'] as $field){
@@ -688,9 +747,13 @@
 							foreach($elements as $name){
 								$selected = false;
 
+<<<<<<< HEAD
 								$section_id = SectionManager::lookup()->getId(str_replace('section:', '', $fields['source']));
 
 								if($section_id == $section_data['section']->get('id') && in_array($name, $fields['xml_elements'])){
+=======
+								if($fields['source'] == $section_id && in_array($name, $fields['xml_elements'])){
+>>>>>>> upstream/integration
 									$selected = true;
 								}
 
@@ -847,7 +910,13 @@
 		// creating a 'big' page and then hiding the fields with JS
 			if(!empty($providers)) {
 				foreach($providers as $providerClass => $provider) {
-					call_user_func(array($providerClass, 'buildEditor'), $this->Form, &$this->_errors, $fields, $handle);
+					if (PHP_VERSION_ID >= 50300) {
+						$providerClass::buildEditor($this->Form, $this->_errors, $fields, $handle);
+					}
+					// PHP 5.2 does not support late static binding..
+					else{
+						call_user_func_array(array($providerClass, 'buildEditor'), $this->Form, array(&$this->_errors, $fields, $handle));
+					}
 				}
 			}
 
@@ -997,7 +1066,7 @@
 		public function __formAction(){
 			$fields = $_POST['fields'];
 			$this->_errors = array();
-			$providers = Symphony::ExtensionManager()->getProvidersOf('data-sources');
+			$providers = Symphony::ExtensionManager()->getProvidersOf(iProvider::DATASOURCE);
 			$providerClass = null;
 
 			if(trim($fields['name']) == '') $this->_errors['name'] = __('This is a required field');
@@ -1012,7 +1081,7 @@
 
 					General::validateXML($fields['static_xml'], $xml_errors, false, new XsltProcess());
 
-					if(!empty($xml_errors)) $this->_errors['static_xml'] = __('XML is invalid');
+					if(!empty($xml_errors)) $this->_errors['static_xml'] = __('XML is invalid.');
 				}
 			}
 
@@ -1063,10 +1132,18 @@
 			// See if a Provided Datasource is saved
 			elseif (!empty($providers)) {
 				foreach($providers as $providerClass => $provider) {
-					if($fields['source'] == call_user_func(array($providerClass, 'getSource'))) {
-						call_user_func(array($providerClass, 'validate'), &$fields, &$this->_errors);
+					if (PHP_VERSION_ID >= 50300) {
+						if($fields['source'] == $providerClass::getSource()) {
+							$providerClass::validate($fields, $this->_errors);
+							break;
+						}
+					}
+					// PHP 5.2 does not support late static binding..
+					else if($fields['source'] == call_user_func(array($providerClass, 'getSource'))) {
+						call_user_func_array(array($providerClass, 'validate'), array(&$fields, &$this->_errors));
 						break;
 					}
+
 					unset($providerClass);
 				}
 			}
@@ -1122,7 +1199,6 @@
 				self::injectAboutInformation($dsShell, $about);
 
 				// Do dependencies, the template file must have <!-- CLASS NAME -->
-				// and <!-- DS DEPENDENCY LIST --> tokens
 				$dsShell = str_replace('<!-- CLASS NAME -->', $classname, $dsShell);
 
 				// If there is a provider, let them do the prepartion work
@@ -1341,15 +1417,15 @@
 				$dsShell = preg_replace(array('/<!--[\w ]++-->/', '/(\r\n){2,}/', '/(\t+[\r\n]){2,}/'), '', $dsShell);
 
 				// Write the file
-				if(!is_writable(dirname($file)) || !$write = General::writeFile($file, $dsShell, Symphony::Configuration()->get('write_mode', 'file')))
+				if(!is_writable(dirname($file)) || !$write = General::writeFile($file, $dsShell, Symphony::Configuration()->get('write_mode', 'file'))) {
 					$this->pageAlert(
 						__('Failed to write Data source to disk.')
 						. ' ' . __('Please check permissions on %s.', array('<code>/workspace/data-sources</code>'))
 						, Alert::ERROR
 					);
-
+				}
 				// Write Successful, add record to the database
-				else{
+				else {
 
 					if($queueForDeletion){
 						General::deleteFile($queueForDeletion);
@@ -1383,7 +1459,9 @@
 						 * @param string $file
 						 *  The path to the Datasource file
 						 */
-						Symphony::ExtensionManager()->notifyMembers('DatasourcePostCreate', '/blueprints/datasources/', array('file' => $file));
+						Symphony::ExtensionManager()->notifyMembers('DatasourcePostCreate', '/blueprints/datasources/', array(
+							'file' => $file
+						));
 					}
 					else {
 						/**
@@ -1395,8 +1473,15 @@
 						 * '/blueprints/datasources/'
 						 * @param string $file
 						 *  The path to the Datasource file
+						 * @param string $previous_file
+						 *  The path of the previous Datasource file in the case where a Datasource may
+						 *  have been renamed. To get the handle from this value, see
+						 *  `DatasourceManager::__getHandleFromFilename`
 						 */
-						Symphony::ExtensionManager()->notifyMembers('DatasourcePostEdit', '/blueprints/datasources/', array('file' => $file));
+						Symphony::ExtensionManager()->notifyMembers('DatasourcePostEdit', '/blueprints/datasources/', array(
+							'file' => $file,
+							'previous_file' => ($queueForDeletion) ? $queueForDeletion : null
+						));
 					}
 
 					redirect(SYMPHONY_URL . '/blueprints/datasources/edit/'.$classname.'/'.($this->_context[0] == 'new' ? 'created' : 'saved') . '/');
