@@ -189,6 +189,22 @@
 		 */
 		public function pushToLog($message, $type=E_NOTICE, $writeToLog=false, $addbreak=true, $append=false){
 
+			/**
+			 * When pushing a new message to the log.
+			 *
+			 * @delegate LogPush
+			 * @since Symphony 2.3.1
+			 * @param string $context
+			 * '/frontend/' or '/backend/'
+			 * @param string $message
+			 *  The message that is being written to the log
+			 * @param int $type
+			 *  The type of message
+			 */
+			Symphony::ExtensionManager()->notifyMembers('LogPush', class_exists('Administration') ? '/backend/' : '/frontend/',
+				array('message' => $message, 'type' => $type)
+			);
+			
 			if($append){
 				$this->_log[count($this->_log) - 1]['message'] =  $this->_log[count($this->_log) - 1]['message'] . $message;
 			}
