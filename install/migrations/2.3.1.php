@@ -23,7 +23,7 @@
 		}
 
 		static function getVersion(){
-			return '2.3.1beta2';
+			return '2.3.1RC1';
 		}
 
 		static function getReleaseNotes(){
@@ -66,6 +66,31 @@
 				if(Symphony::Database()->tableContainsField('tbl_sections', 'entry_order_direction')) {
 					Symphony::Database()->query("ALTER TABLE `tbl_sections` DROP `entry_order_direction`;");
 				}
+			}
+
+			if(version_compare(self::$existing_version, '2.3.1RC1', '<=')) {
+				// Add Security Rules from 2.2 to .htaccess
+				try {
+					$htaccess = file_get_contents(DOCROOT . '/.htaccess');
+
+					if($htaccess !== false && preg_match('/### SECURITY - Protect crucial files/', $htaccess)){
+						$security = '
+			### SECURITY - Protect crucial files
+			RewriteRule ^manifest/(.*)$ - [F]
+			RewriteRule ^workspace/(pages|utilities)/(.*)\.xsl$ - [F]
+			RewriteRule ^(.*)\.sql$ - [F]
+			RewriteRule (^|/)\. - [F]
+
+			### DO NOT APPLY RULES WHEN REQUESTING "favicon.ico"';
+
+						$htaccess = str_replace('### SECURITY - Protect crucial files.*### DO NOT APPLY RULES WHEN REQUESTING "favicon.ico"', $security, $htaccess);
+						file_put_contents(DOCROOT . '/.htaccess', $htaccess);
+					}
+
+					// Increase length of password field to accomodate longer hashes
+					Symphony::Database()->query("ALTER TABLE `tbl_authors` CHANGE `password` `password` VARCHAR( 150 ) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL");
+				}
+				catch (Exception $ex) {}
 			}
 
 			// Update the version information

@@ -692,7 +692,6 @@
 
 				foreach($pool as $handle => $event){
 					Symphony::Profiler()->seed();
-
 					$queries = Symphony::Database()->queryCount();
 
 					if($xml = $event->load()) {
@@ -703,9 +702,7 @@
 					}
 
 					$queries = Symphony::Database()->queryCount() - $queries;
-
 					Symphony::Profiler()->sample($handle, PROFILE_LAP, 'Event', $queries);
-
 				}
 			}
 
@@ -779,8 +776,6 @@
 			$dependencies = array();
 
 			foreach ($datasources as $handle) {
-				Symphony::Profiler()->seed();
-
 				$pool[$handle] =& DatasourceManager::create($handle, array(), false);
 				$dependencies[$handle] = $pool[$handle]->getDependencies();
 			}
